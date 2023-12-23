@@ -429,8 +429,8 @@ class IRMDataProvider(LYDataProvider):
         return self.train_loader
 
     def fetch_test(self):
-        return self.test_x, self.test_y, self.test_g, self.test_c
-        # return self.test_loader
+        # return self.test_x, self.test_y, self.test_g, self.test_c
+        return self.test_loader
 
 class CMNIST_LYDP(IRMDataProvider):
     def __init__(self, flags):
