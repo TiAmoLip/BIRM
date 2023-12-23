@@ -127,18 +127,18 @@ class MLP(nn.Module):
         #   nn.init.zeros_(lin.bias)
         # self._main = nn.Sequential(lin1, nn.ReLU(True), lin2, nn.ReLU(True), lin3)
         self.conv = nn.Sequential(
-            nn.Conv2d(3,32,3,1,1),
+            nn.Conv2d(3,16,3,1,1),
             nn.LeakyReLU(0.2,inplace=True),
             nn.MaxPool2d(2),
-            nn.Conv2d(32,64,3,1,1),
+            nn.Conv2d(16,32,3,1,1),
             nn.LeakyReLU(0.2,inplace=True),
-            nn.Conv2d(64,64,3,1,1),
+            nn.Conv2d(32,32,3,1,1),
             nn.LeakyReLU(0.2,inplace=True),
             nn.MaxPool2d(2),
             nn.Flatten(),
-            nn.Linear(64*7*7,256),
+            nn.Linear(32*7*7,100),
             nn.LeakyReLU(0.2,inplace=True),
-            nn.Linear(256,1)
+            nn.Linear(100,1)
             # nn.LeakyReLU(0.2,inplace=True),
         )
 
