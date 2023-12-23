@@ -156,7 +156,7 @@ class MLP(nn.Module):
         #     out = input.view(input.shape[0], 2, 14 * 14).sum(dim=1)
         # else:
         #     out = input.view(input.shape[0], 2 * 14 * 14)
-        out = self.conv(out)
+        out = self.conv(input.view(-1,2,14,14))
         return out
 
 
