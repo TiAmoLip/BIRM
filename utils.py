@@ -158,7 +158,7 @@ def make_environment(images, labels, e):
     # Apply the color to the image by zeroing out the other color channel
     images = torch.stack([images, images], dim=1)
     images[torch.tensor(range(len(images))), (1-colors).long(), :, :] *= 0
-    images = torch.cat([images,torch.zeros((images.shape[0],1,images.shape[2],images.shape[3]))],dim=1)
+    images = torch.cat([images,torch.zeros((images.shape[0],1,images.shape[2],images.shape[3])).cuda()],dim=1)
     return {
       'images': (images.float() / 255.),
       'labels': labels[:, None],
