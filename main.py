@@ -113,7 +113,7 @@ for restart in range(flags.n_restarts):
         loss += penalty_weight * train_penalty
         if penalty_weight > 1.0:
             loss /= (1. + penalty_weight)
-
+        penalty_weight*=1.002
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()

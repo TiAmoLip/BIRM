@@ -112,27 +112,51 @@ class BayesW(nn.Module):
         self.epsilon = share_bayes_net.epsilon
 
 
+# class MLP(nn.Module):
+#     def __init__(self, flags):
+#         super(MLP, self).__init__()
+#         self.flags = flags
+#         if flags.grayscale_model:
+#           lin1 = nn.Linear(14 * 14, flags.hidden_dim)
+#         else:
+#           lin1 = nn.Linear(2 * 14 * 14, flags.hidden_dim)
+#         lin2 = nn.Linear(flags.hidden_dim, flags.hidden_dim)
+#         lin3 = nn.Linear(flags.hidden_dim, 1)
+#         for lin in [lin1, lin2, lin3]:
+#           nn.init.xavier_uniform_(lin.weight)
+#           nn.init.zeros_(lin.bias)
+#         self._main = nn.Sequential(lin1, nn.ReLU(True), lin2, nn.ReLU(True), lin3)
+
+#     def forward(self, input):
+#         if self.flags.grayscale_model:
+#           out = input.view(input.shape[0], 2, 14 * 14).sum(dim=1)
+#         else:
+#           out = input.view(input.shape[0], 2 * 14 * 14)
+#         out = self._main(out)
+#         return out
 class MLP(nn.Module):
-    def __init__(self, flags):
+    def __init__(self, flags) -> None:
+
         super(MLP, self).__init__()
         self.flags = flags
-        if flags.grayscale_model:
-          lin1 = nn.Linear(14 * 14, flags.hidden_dim)
-        else:
-          lin1 = nn.Linear(2 * 14 * 14, flags.hidden_dim)
-        lin2 = nn.Linear(flags.hidden_dim, flags.hidden_dim)
-        lin3 = nn.Linear(flags.hidden_dim, 1)
-        for lin in [lin1, lin2, lin3]:
-          nn.init.xavier_uniform_(lin.weight)
-          nn.init.zeros_(lin.bias)
-        self._main = nn.Sequential(lin1, nn.ReLU(True), lin2, nn.ReLU(True), lin3)
-
+        self.conv = nn.Sequential(
+            nn.Conv2d(2,16,3,1,1),
+            nn.LeakyReLU(0.2,inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(16,32,3,1,1),
+            nn.LeakyReLU(0.2,inplace=True),
+            # nn.MaxPool2d(2),
+            nn.Flatten(),
+            nn.Linear(32*7*7,100),
+            nn.LeakyReLU(0.2,inplace=True),
+            nn.Linear(100,1)
+        )
     def forward(self, input):
-        if self.flags.grayscale_model:
-          out = input.view(input.shape[0], 2, 14 * 14).sum(dim=1)
-        else:
-          out = input.view(input.shape[0], 2 * 14 * 14)
-        out = self._main(out)
+        # if self.flags.grayscale_model:
+        #     out = input.view(input.shape[0], 2, 14 * 14).sum(dim=1)
+        # else:
+        #     out = input.view(input.shape[0], 2 * 14 * 14)
+        out = self.conv(out)
         return out
 
 
