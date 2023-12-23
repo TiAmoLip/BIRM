@@ -1,10 +1,9 @@
 import argparse
 import random
-# from cm_spurious_dataset import get_data_loader_cifarminst
-# from coco_dataset import get_spcoco_dataset
+from cm_spurious_dataset import get_data_loader_cifarminst
+from coco_dataset import get_spcoco_dataset
 import math
 import numpy as np
-from torch.utils.data import DataLoader,Dataset,TensorDataset
 import torch
 from torchvision import datasets
 from data import CowCamels
@@ -12,7 +11,7 @@ from data import AntiReg
 import os
 import sys
 from torch import nn, optim, autograd
-torch.cuda.set_device("cuda:0")
+
 def return_model(flags):
     model_type = None
     if flags.irm_type == "erm":
@@ -70,7 +69,7 @@ def torch_bernoulli(p, size):
 def torch_xor(a, b):
     return (a-b).abs()
 
-def concat_envs(con_envs,batchsize=300,test=False):
+def concat_envs(con_envs):
     con_x = torch.cat([env["images"] for env in con_envs])
     con_y = torch.cat([env["labels"] for env in con_envs])
     con_g = torch.cat([
@@ -81,11 +80,8 @@ def concat_envs(con_envs,batchsize=300,test=False):
     #     for ig,env in enumerate(con_envs)]).long()
     con_c = torch.cat([env["color"] for env in con_envs])
     # con_yn = torch.cat([env["noise"] for env in con_envs])
-    # if test:
-    return con_x, con_y, con_g, con_c
-    # return con_x.cuda(), con_y.cuda(), con_g.cuda(), con_c.cuda()
-    # dataset = TensorDataset(con_x,con_y,con_g,con_c)
-    # return DataLoader(dataset,batchsize,True)
+    # return con_x, con_y, con_g, con_c
+    return con_x.cuda(), con_y.cuda(), con_g.cuda(), con_c.cuda()
 
 
 def merge_env(original_env, merged_num):
@@ -146,19 +142,18 @@ def get_strctured_penalty(strctnet, ebd, envs_num, xis):
 
 
 def make_environment(images, labels, e):
-    
-    images = images.reshape((-1, 28, 28)).cuda()
+    # 2x subsample for computational convenience
+    images = images.reshape((-1, 28, 28))[:, ::2, ::2]
     # Assign a binary label based on the digit; flip label with probability 0.25
-    labels = (labels < 5).float().cuda()
-    labels = torch_xor(labels, torch_bernoulli(0.25, len(labels)).cuda())
+    labels = (labels < 5).float()
+    labels = torch_xor(labels, torch_bernoulli(0.25, len(labels)))
     # Assign a color based on the label; flip the color with probability e
-    color_mask = torch_bernoulli(e, len(labels)).cuda()
+    color_mask = torch_bernoulli(e, len(labels))
     colors = torch_xor(labels, color_mask)
     # colors = torch_xor(labels, torch_bernoulli(e, len(labels)))
     # Apply the color to the image by zeroing out the other color channel
     images = torch.stack([images, images], dim=1)
     images[torch.tensor(range(len(images))), (1-colors).long(), :, :] *= 0
-    images = torch.cat([images,torch.zeros((images.shape[0],1,images.shape[2],images.shape[3])).cuda()],dim=1)
     return {
       'images': (images.float() / 255.),
       'labels': labels[:, None],
@@ -417,20 +412,16 @@ class LYDataProvider(object):
 class IRMDataProvider(LYDataProvider):
     def __init__(self, flags):
         super(IRMDataProvider, self).__init__()
-        self.bs = flags.batch_size
 
     def preprocess_data(self):
-        # self.train_x, self.train_y, self.train_g, self.train_c= concat_envs(self.envs[:-1])
-        # self.test_x, self.test_y, self.test_g, self.test_c= concat_envs(self.envs[-1:])
-        self.train_loader = concat_envs(self.envs[:-1],self.bs)
-        self.test_loader = concat_envs(self.envs[-1:],self.bs,test=True)
+        self.train_x, self.train_y, self.train_g, self.train_c= concat_envs(self.envs[:-1])
+        self.test_x, self.test_y, self.test_g, self.test_c= concat_envs(self.envs[-1:])
 
     def fetch_train(self):
-        return self.train_loader
+        return self.train_x, self.train_y, self.train_g, self.train_c
 
     def fetch_test(self):
-        # return self.test_x, self.test_y, self.test_g, self.test_c
-        return self.test_loader
+        return self.test_x, self.test_y, self.test_g, self.test_c
 
 class CMNIST_LYDP(IRMDataProvider):
     def __init__(self, flags):
@@ -460,118 +451,117 @@ class REG_LYDP(IRMDataProvider):
         self.envs = make_reg_envs(flags.data_num, flags)
         self.preprocess_data()
 
-# class CIFAR_LYPD(LYDataProvider):
-#     def __init__(self, flags):
-#         super(CIFAR_LYPD, self).__init__()
-#         self.flags = flags
-#         np.random.seed(flags.seed)
-#         random.seed(1) # Fix the random seed of dataset
-#         self.preprocess_data()
+class CIFAR_LYPD(LYDataProvider):
+    def __init__(self, flags):
+        super(CIFAR_LYPD, self).__init__()
+        self.flags = flags
+        np.random.seed(flags.seed)
+        random.seed(1) # Fix the random seed of dataset
+        self.preprocess_data()
 
-#     def preprocess_data(self):
-#         train_num=10000
-#         test_num=1000 #1800
-#         cons_list = [0.999,0.7,0.1]
-#         train_envs = len(cons_list) - 1
-#         ratio_list = [1. / train_envs] * (train_envs)
-#         spd, self.train_loader, self.val_loader, self.test_loader, self.train_data, self.val_data, self.test_data = get_data_loader_cifarminst(
-#             batch_size=self.flags.batch_size,
-#             train_num=train_num,
-#             test_num=test_num,
-#             cons_ratios=cons_list,
-#             train_envs_ratio=ratio_list,
-#             label_noise_ratio=0.1,
-#             color_spurious=False,
-#             transform_data_to_standard=0,
-#             oracle=0)
-#         self.train_loader_iter = iter(self.train_loader)
+    def preprocess_data(self):
+        train_num=10000
+        test_num=1000 #1800
+        cons_list = [0.999,0.7,0.1]
+        train_envs = len(cons_list) - 1
+        ratio_list = [1. / train_envs] * (train_envs)
+        spd, self.train_loader, self.val_loader, self.test_loader, self.train_data, self.val_data, self.test_data = get_data_loader_cifarminst(
+            batch_size=self.flags.batch_size,
+            train_num=train_num,
+            test_num=test_num,
+            cons_ratios=cons_list,
+            train_envs_ratio=ratio_list,
+            label_noise_ratio=0.1,
+            color_spurious=False,
+            transform_data_to_standard=0,
+            oracle=0)
+        self.train_loader_iter = iter(self.train_loader)
 
-#     def fetch_train(self):
-#         try:
-#             batch_data = self.train_loader_iter.__next__()
-#         except:
-#             self.train_loader_iter = iter(self.train_loader)
-#             batch_data = self.train_loader_iter.__next__()
-#         batch_data = tuple(t.cuda() for t in batch_data)
-#         x, y, g, sp = batch_data
-#         return x, y.float().cuda(), g, sp
+    def fetch_train(self):
+        try:
+            batch_data = self.train_loader_iter.__next__()
+        except:
+            self.train_loader_iter = iter(self.train_loader)
+            batch_data = self.train_loader_iter.__next__()
+        batch_data = tuple(t.cuda() for t in batch_data)
+        x, y, g, sp = batch_data
+        return x, y.float().cuda(), g, sp
 
-#     def fetch_test(self):
-#         ds = self.test_data.val_dataset
-#         batch = ds.x_array, ds.y_array, ds.env_array, ds.sp_array
-#         batch = tuple(
-#             torch.Tensor(t).cuda()
-#             for t in batch)
-#         x, y, g, sp = batch
-#         return x, y.float(), g, sp
+    def fetch_test(self):
+        ds = self.test_data.val_dataset
+        batch = ds.x_array, ds.y_array, ds.env_array, ds.sp_array
+        batch = tuple(
+            torch.Tensor(t).cuda()
+            for t in batch)
+        x, y, g, sp = batch
+        return x, y.float(), g, sp
 
-#     def test_batchs(self):
-#         return math.ceil(self.test_data.val_dataset.x_array.shape[0] / self.flags.batch_size)
+    def test_batchs(self):
+        return math.ceil(self.test_data.val_dataset.x_array.shape[0] / self.flags.batch_size)
 
-#     # def train_batchs(self):
-#     #     return math.ceil(self.train_dataset.x_array.shape[0] / self.flags.batch_size)
+    # def train_batchs(self):
+    #     return math.ceil(self.train_dataset.x_array.shape[0] / self.flags.batch_size)
 
 
 
-# class COCOcolor_LYPD(LYDataProvider):
-#     def __init__(self, flags):
-#         super(COCOcolor_LYPD, self).__init__()
-#         self.flags = flags
-#         self.flags.image_scale = 32
-#         self.preprocess_data()
+class COCOcolor_LYPD(LYDataProvider):
+    def __init__(self, flags):
+        super(COCOcolor_LYPD, self).__init__()
+        self.flags = flags
+        self.flags.image_scale = 32
+        self.preprocess_data()
 
-#     def preprocess_data(self):
-#         sp_ratio_list = [float(x) for x in "0.999_0.7_0.1".split("_")]
-#         self.train_dataset, self.test_dataset = get_spcoco_dataset(
-#             sp_ratio_list=sp_ratio_list,
-#             noise_ratio=0.05,
-#             num_classes=2,
-#             flags=self.flags)
-#         self.train_loader = torch.utils.data.DataLoader(
-#             dataset=self.train_dataset,
-#             batch_size=self.flags.batch_size,
-#             shuffle=False,
-#             num_workers=4)
-#         self.test_loader = torch.utils.data.DataLoader(
-#             dataset=self.test_dataset,
-#             batch_size=self.flags.batch_size,
-#             shuffle=False,
-#             num_workers=4)
-#         self.train_loader_iter = iter(self.train_loader)
-#         self.test_loader_iter = iter(self.test_loader)
+    def preprocess_data(self):
+        sp_ratio_list = [float(x) for x in "0.999_0.7_0.1".split("_")]
+        self.train_dataset, self.test_dataset = get_spcoco_dataset(
+            sp_ratio_list=sp_ratio_list,
+            noise_ratio=0.05,
+            num_classes=2,
+            flags=self.flags)
+        self.train_loader = torch.utils.data.DataLoader(
+            dataset=self.train_dataset,
+            batch_size=self.flags.batch_size,
+            shuffle=False,
+            num_workers=4)
+        self.test_loader = torch.utils.data.DataLoader(
+            dataset=self.test_dataset,
+            batch_size=self.flags.batch_size,
+            shuffle=False,
+            num_workers=4)
+        self.train_loader_iter = iter(self.train_loader)
+        self.test_loader_iter = iter(self.test_loader)
 
-#     def fetch_train(self):
-#         try:
-#             batch_data = self.train_loader_iter.__next__()
-#         except:
-#             self.train_loader_iter = iter(self.train_loader)
-#             batch_data = self.train_loader_iter.__next__()
-#         batch_data = tuple(t.cuda() for t in batch_data)
-#         x, y, g, sp = batch_data
-#         return x, y.float().cuda(), g, sp
+    def fetch_train(self):
+        try:
+            batch_data = self.train_loader_iter.__next__()
+        except:
+            self.train_loader_iter = iter(self.train_loader)
+            batch_data = self.train_loader_iter.__next__()
+        batch_data = tuple(t.cuda() for t in batch_data)
+        x, y, g, sp = batch_data
+        return x, y.float().cuda(), g, sp
 
-#     def fetch_test(self):
-#         ds = self.test_dataset
-#         batch = ds.x_array, ds.y_array, ds.env_array, ds.sp_array
-#         batch = tuple(
-#             torch.Tensor(t).cuda()
-#             for t in batch)
-#         x, y, g, sp = batch
-#         return x, y.float(), g, sp
+    def fetch_test(self):
+        ds = self.test_dataset
+        batch = ds.x_array, ds.y_array, ds.env_array, ds.sp_array
+        batch = tuple(
+            torch.Tensor(t).cuda()
+            for t in batch)
+        x, y, g, sp = batch
+        return x, y.float(), g, sp
 
-#     def test_batchs(self):
-#         return math.ceil(self.test_dataset.x_array.shape[0] / self.flags.batch_size)
+    def test_batchs(self):
+        return math.ceil(self.test_dataset.x_array.shape[0] / self.flags.batch_size)
 
-#     def train_batchs(self):
-#         return math.ceil(self.train_dataset.x_array.shape[0] / self.flags.batch_size)
+    def train_batchs(self):
+        return math.ceil(self.train_dataset.x_array.shape[0] / self.flags.batch_size)
 
-#     def fetch_test_batch(self):
-#         try:
-#             batch_data = self.test_loader_iter.__next__()
-#         except:
-#             self.test_loader_iter = iter(self.test_loader)
-#             batch_data = self.test_loader_iter.__next__()
-#         batch_data = tuple(t.cuda() for t in batch_data)
-#         x, y, g, sp = batch_data
-#         return x, y.float().cuda(), g, sp
-
+    def fetch_test_batch(self):
+        try:
+            batch_data = self.test_loader_iter.__next__()
+        except:
+            self.test_loader_iter = iter(self.test_loader)
+            batch_data = self.test_loader_iter.__next__()
+        batch_data = tuple(t.cuda() for t in batch_data)
+        x, y, g, sp = batch_data
+        return x, y.float().cuda(), g, sp
