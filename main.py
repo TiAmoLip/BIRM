@@ -10,14 +10,14 @@ import os
 import sys
 from torch import nn, optim, autograd
 from model import EBD
-from model import resnet18_sepfc_us
+# from model import resnet18_sepfc_us
 from model import MLP
 # torch.cuda.set_device("cpu")
 sys.path.append('dataset_scripts')
 from utils import concat_envs,eval_acc_class,eval_acc_reg,mean_nll_class,mean_accuracy_class,mean_nll_reg,mean_accuracy_reg,pretty_print, return_model
 from utils import CMNIST_LYDP
-from utils import CIFAR_LYPD, COCOcolor_LYPD
-from utils import mean_nll_multi_class,eval_acc_multi_class,mean_accuracy_multi_class
+# from utils import CIFAR_LYPD, COCOcolor_LYPD
+# from utils import mean_nll_multi_class,eval_acc_multi_class,mean_accuracy_multi_class
 
 
 parser = argparse.ArgumentParser(description='Colored MNIST')
@@ -59,31 +59,11 @@ for restart in range(flags.n_restarts):
         dp = CMNIST_LYDP(flags)
         test_batch_num = 1
         test_batch_fetcher = dp.fetch_test
-        mlp = MLP(flags).cuda()
+        mlp = MLP(flags)
         mean_nll = mean_nll_class
         mean_accuracy = mean_accuracy_class
         eval_acc = eval_acc_class
         flags.env_type = "linear"
-    elif flags.dataset == "CifarMnist":
-        dp = CIFAR_LYPD(flags)
-        test_batch_num = 1
-        test_batch_fetcher = dp.fetch_test
-        mlp = resnet18_sepfc_us(
-            pretrained=False,
-            num_classes=1).cuda()
-        mean_nll = mean_nll_class
-        mean_accuracy = mean_accuracy_class
-        eval_acc = eval_acc_class
-    elif flags.dataset == "ColoredObject":
-        dp = COCOcolor_LYPD(flags)
-        test_batch_num = dp.test_batchs()
-        test_batch_fetcher = dp.fetch_test_batch
-        mlp = resnet18_sepfc_us(
-            pretrained=False,
-            num_classes=1).cuda()
-        mean_nll = mean_nll_class
-        mean_accuracy = mean_accuracy_class
-        eval_acc = eval_acc_class
     else:
         raise Exception
     if flags.opt == "adam":
@@ -98,62 +78,22 @@ for restart in range(flags.n_restarts):
     else:
         raise Exception
 
-    ebd = EBD(flags).cuda()
+    ebd = EBD(flags)
     lr_schd = lr_scheduler.StepLR(
         optimizer,
         step_size=int(flags.steps/2),
         gamma=flags.step_gamma)
 
     pretty_print('step', 'train loss', 'train penalty', 'test acc')
-    if flags.irm_type == "cirm_sep":
-        pred_env_haty_sep.init_sep_by_share(pred_env_haty)
+    # if flags.irm_type == "cirm_sep":
+    #     pred_env_haty_sep.init_sep_by_share(pred_env_haty)
+    train_loader = dp.fetch_train()
+    test_loader = dp.fetch_test()
     for step in range(flags.steps):
         mlp.train()
-        train_x, train_y, train_g, train_c= dp.fetch_train()
-        if model_type == "irmv1":
-            train_logits = ebd(train_g).view(-1, 1) * mlp(train_x)
-            train_nll = mean_nll(train_logits, train_y)
-            grad = autograd.grad(
-                train_nll * flags.envs_num, ebd.parameters(),
-                create_graph=True)[0]
-            train_penalty =  torch.mean(grad**2)
-        elif model_type == "irmv1b":
-            e1 = (train_g == 0).view(-1).nonzero().view(-1)
-            e2 = (train_g == 1).view(-1).nonzero().view(-1)
-            e1 = e1[torch.randperm(len(e1))]
-            e2 = e2[torch.randperm(len(e2))]
-            s1 = torch.cat([e1[::2], e2[::2]])
-            s2 = torch.cat([e1[1::2], e2[1::2]])
-            train_logits = ebd(train_g).view(-1, 1) * mlp(train_x)
-
-            train_nll1 = mean_nll(train_logits[s1], train_y[s1])
-            train_nll2 = mean_nll(train_logits[s2], train_y[s2])
-            train_nll = train_nll1 + train_nll2
-            grad1 = autograd.grad(
-                train_nll1 * flags.envs_num, ebd.parameters(),
-                create_graph=True)[0]
-            grad2 = autograd.grad(
-                train_nll2 * flags.envs_num, ebd.parameters(),
-                create_graph=True)[0]
-            train_penalty = torch.mean(grad1 * grad2)
-        elif model_type == "bayes_variance":
-            sampleN = 10
-            train_penalty = 0
-            train_logits = mlp(train_x)
-            train_nll = mean_nll(train_logits, train_y)
-            for i in range(sampleN):
-                ebd.re_init_with_noise(flags.prior_sd_coef/flags.data_num)
-                loss_list = []
-                for i in range(int(train_g.max())+1):
-                    ei = (train_g == i).view(-1)
-                    ey = train_y[ei]
-                    el= train_logits[ei]
-                    enll = mean_nll(el, ey)
-                    loss_list.append(enll)
-                loss_t = torch.stack(loss_list)
-                train_penalty0 = ((loss_t - loss_t.mean())** 2).mean()
-                train_penalty +=  1/sampleN * train_penalty0
-        elif model_type == "bayes_fullbatch":
+        for train_x, train_y, train_g, train_c in train_loader:
+        # train_x, train_y, train_g, train_c= dp.fetch_train()
+        # if model_type == "bayes_fullbatch":
 
             sampleN = 10
             train_penalty = 0
@@ -166,53 +106,46 @@ for restart in range(flags.n_restarts):
                     train_nll * flags.envs_num, ebd.parameters(),
                     create_graph=True)[0]
                 train_penalty +=  1/sampleN * torch.mean(grad**2)
-        elif model_type == "bayes_batch":
-            sampleN = 10
-            train_penalty = 0
-            train_logits = mlp(train_x)
-            e1 = (train_g == 0).view(-1).nonzero().view(-1)
-            e2 = (train_g == 1).view(-1).nonzero().view(-1)
-            e1 = e1[torch.randperm(len(e1))]
-            e2 = e2[torch.randperm(len(e2))]
-            s1 = torch.cat([e1[::2], e2[::2]])
-            s2 = torch.cat([e1[1::2], e2[1::2]])
-            train_nll = mean_nll(train_logits, train_y)
-            for i in range(sampleN):
-                ebd.re_init_with_noise(flags.prior_sd_coef/flags.data_num)
-                train_logits_w1 = ebd(train_g[s1]).view(-1, 1)*train_logits[s1]
-                train_logits_w2 = ebd(train_g[s2]).view(-1, 1)*train_logits[s2]
-                train_nll1 = mean_nll(train_logits_w1, train_y[s1])
-                train_nll2 = mean_nll(train_logits_w2, train_y[s2])
-                grad1 = autograd.grad(
-                    train_nll1 * flags.envs_num, ebd.parameters(),
-                    create_graph=True)[0]
-                grad2 = autograd.grad(
-                    train_nll2 * flags.envs_num, ebd.parameters(),
-                    create_graph=True)[0]
-                train_penalty +=  1./sampleN * torch.mean(grad1*grad2)
-        elif irm_type == "erm":
-            train_logits = mlp(train_x)
-            train_nll = mean_nll(train_logits, train_y)
-            train_penalty = torch.tensor(0.0)
-        else:
-            raise Exception
-        train_acc, train_minacc, train_majacc = eval_acc(train_logits, train_y, train_c)
-        weight_norm = torch.tensor(0.).cuda()
-        for w in mlp.parameters():
-            weight_norm += w.norm().pow(2)
+            train_acc, train_minacc, train_majacc = eval_acc(train_logits, train_y, train_c)
+            weight_norm = torch.tensor(0.).cuda()
+            for w in mlp.parameters():
+                weight_norm += w.norm().pow(2)
 
-        loss = train_nll.clone()
-        loss += flags.l2_regularizer_weight * weight_norm
-        penalty_weight = (flags.penalty_weight
-            if step >= flags.penalty_anneal_iters else 0.0)
-        loss += penalty_weight * train_penalty
-        if penalty_weight > 1.0:
-          loss /= (1. + penalty_weight)
+            loss = train_nll.clone()
+            loss += flags.l2_regularizer_weight * weight_norm
+            penalty_weight = (flags.penalty_weight
+                if step >= flags.penalty_anneal_iters else 0.0)
+            loss += penalty_weight * train_penalty
+            if penalty_weight > 1.0:
+                loss /= (1. + penalty_weight)
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        lr_schd.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            lr_schd.step()
+        # elif irm_type == "erm":
+        #     train_logits = mlp(train_x)
+        #     train_nll = mean_nll(train_logits, train_y)
+        #     train_penalty = torch.tensor(0.0)
+        # else:
+        #     raise Exception
+        # train_acc, train_minacc, train_majacc = eval_acc(train_logits, train_y, train_c)
+        # weight_norm = torch.tensor(0.).cuda()
+        # for w in mlp.parameters():
+        #     weight_norm += w.norm().pow(2)
+
+        # loss = train_nll.clone()
+        # loss += flags.l2_regularizer_weight * weight_norm
+        # penalty_weight = (flags.penalty_weight
+        #     if step >= flags.penalty_anneal_iters else 0.0)
+        # loss += penalty_weight * train_penalty
+        # if penalty_weight > 1.0:
+        #     loss /= (1. + penalty_weight)
+
+        # optimizer.zero_grad()
+        # loss.backward()
+        # optimizer.step()
+        # lr_schd.step()
 
         if step % flags.print_every == 0:
             if flags.dataset != 'CifarMnist':
@@ -221,8 +154,9 @@ for restart in range(flags.n_restarts):
             test_minacc_list = []
             test_majacc_list = []
             data_num = []
-            for ii in range(test_batch_num):
-                test_x, test_y, test_g, test_c= test_batch_fetcher()
+            # for ii in range(test_batch_num):
+            #     test_x, test_y, test_g, test_c= test_batch_fetcher()
+            for test_x, test_y, test_g, test_c in test_loader:
                 test_logits = mlp(test_x)
                 test_acc_, test_minacc_, test_majacc_ = eval_acc(test_logits, test_y, test_c)
                 test_acc_list.append(test_acc_ * test_x.shape[0])

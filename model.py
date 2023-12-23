@@ -34,7 +34,7 @@ class EBD(nn.Module):
       rd = torch.normal(
          torch.Tensor([1.0] * self.flags.envs_num),
          torch.Tensor([noise_sd] * self.flags.envs_num))
-      self.embedings.weight.data = rd.view(-1, 1).cuda()
+      self.embedings.weight.data = rd.view(-1, 1)
       # else:
       # rd = torch.normal(
       #    torch.Tensor([1.0] * self.flags.envs_num * self.flags.num_classes),
@@ -249,7 +249,7 @@ class PredEnvHatYSep(nn.Module):
         self.lin2_2.bias.data = share_net.lin2.bias.data.clone()
 
     def forward(self, g, input):
-        output = torch.zeros_like(g).cuda()
+        output = torch.zeros_like(g)
         output[g == 0]= self._main1(
             input[g == 0].view(-1, 1)).view(-1)
         output[g == 1]= self._main2(
