@@ -93,66 +93,48 @@ for restart in range(flags.n_restarts):
     # if flags.irm_type == "cirm_sep":
     #     pred_env_haty_sep.init_sep_by_share(pred_env_haty)
     train_loader = dp.fetch_train()
-    test_loader = dp.fetch_test()
-    for epoch in range(flags.steps):
+    # test_loader = dp.fetch_test()
+    for step in range(flags.steps):
         mlp.train()
-        for step, (train_x, train_y, train_g, train_c) in enumerate(train_loader):
-        # train_x, train_y, train_g, train_c= dp.fetch_train()
-        # if model_type == "bayes_fullbatch":
-
-            sampleN = 10
-            train_penalty = 0
-            train_logits = mlp(train_x)
-            for i in range(sampleN):
-                ebd.re_init_with_noise(flags.prior_sd_coef/flags.data_num)
-                train_logits_w = ebd(train_g).view(-1, 1)*train_logits
-                train_nll = mean_nll(train_logits_w, train_y)
-                grad = autograd.grad(
-                    train_nll * flags.envs_num, ebd.parameters(),
-                    create_graph=True)[0]
-                train_penalty +=  1/sampleN * torch.mean(grad**2)
-            train_acc, train_minacc, train_majacc = eval_acc(train_logits, train_y, train_c)
-            weight_norm = torch.tensor(0.)
-            for w in mlp.parameters():
-                weight_norm += w.norm().pow(2)
-
-            loss = train_nll.clone()
-            loss += flags.l2_regularizer_weight * weight_norm
-            penalty_weight = (flags.penalty_weight
-                if step >= flags.penalty_anneal_iters else 0.0)
-            loss += penalty_weight * train_penalty
-            if penalty_weight > 1.0:
-                loss /= (1. + penalty_weight)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            lr_schd.step()
+        train_x, train_y, train_g, train_c= dp.fetch_train()
+        
+        
+        sampleN = 10
+        train_penalty = 0
+        train_logits = mlp(train_x)
+        for i in range(sampleN):
+            ebd.re_init_with_noise(flags.prior_sd_coef/flags.data_num)
+            train_logits_w = ebd(train_g).view(-1, 1)*train_logits
+            train_nll = mean_nll(train_logits_w, train_y)
+            grad = autograd.grad(
+                train_nll * flags.envs_num, ebd.parameters(),
+                create_graph=True)[0]
+            train_penalty +=  1/sampleN * torch.mean(grad**2)
         # elif irm_type == "erm":
         #     train_logits = mlp(train_x)
         #     train_nll = mean_nll(train_logits, train_y)
         #     train_penalty = torch.tensor(0.0)
         # else:
         #     raise Exception
-        # train_acc, train_minacc, train_majacc = eval_acc(train_logits, train_y, train_c)
-        # weight_norm = torch.tensor(0.).cuda()
-        # for w in mlp.parameters():
-        #     weight_norm += w.norm().pow(2)
+        train_acc, train_minacc, train_majacc = eval_acc(train_logits, train_y, train_c)
+        weight_norm = torch.tensor(0.)
+        for w in mlp.parameters():
+            weight_norm += w.norm().pow(2)
 
-        # loss = train_nll.clone()
-        # loss += flags.l2_regularizer_weight * weight_norm
-        # penalty_weight = (flags.penalty_weight
-        #     if step >= flags.penalty_anneal_iters else 0.0)
-        # loss += penalty_weight * train_penalty
-        # if penalty_weight > 1.0:
-        #     loss /= (1. + penalty_weight)
+        loss = train_nll.clone()
+        loss += flags.l2_regularizer_weight * weight_norm
+        penalty_weight = (flags.penalty_weight
+            if step >= flags.penalty_anneal_iters else 0.0)
+        loss += penalty_weight * train_penalty
+        if penalty_weight > 1.0:
+            loss /= (1. + penalty_weight)
 
-        # optimizer.zero_grad()
-        # loss.backward()
-        # optimizer.step()
-        # lr_schd.step()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        lr_schd.step()
 
-        if epoch % flags.print_every == 0:
+        if step % flags.print_every == 0:
             # if flags.dataset != 'CifarMnist':
             mlp.eval()
             test_acc_list = []
@@ -160,18 +142,19 @@ for restart in range(flags.n_restarts):
             test_majacc_list = []
             data_num = []
             # for ii in range(test_batch_num):
-            #     test_x, test_y, test_g, test_c= test_batch_fetcher()
-            for test_x, test_y, test_g, test_c in test_loader:
+            test_x, test_y, test_g, test_c= test_batch_fetcher()
+            # for test_x, test_y, test_g, test_c in test_loader:
+            with torch.no_grad():
                 test_logits = mlp(test_x)
-                test_acc_, test_minacc_, test_majacc_ = eval_acc(test_logits, test_y, test_c)
-                test_acc_list.append(test_acc_ * test_x.shape[0])
-                test_minacc_list.append(test_minacc_ * test_x.shape[0])
-                test_majacc_list.append(test_majacc_ * test_x.shape[0])
-                data_num.append(test_x.shape[0])
+            test_acc_, test_minacc_, test_majacc_ = eval_acc(test_logits, test_y, test_c)
+            test_acc_list.append(test_acc_ * test_x.shape[0])
+            test_minacc_list.append(test_minacc_ * test_x.shape[0])
+            test_majacc_list.append(test_majacc_ * test_x.shape[0])
+            data_num.append(test_x.shape[0])
             total_data = torch.Tensor(data_num).sum()
             test_acc, test_minacc, test_majacc = torch.Tensor(test_acc_list).sum()/total_data, torch.Tensor(test_minacc_list).sum()/total_data, torch.Tensor(test_majacc_list).sum()/total_data
             pretty_print(
-                np.int32(epoch),
+                np.int32(step),
                 loss.detach().cpu().numpy(),
                 train_penalty.detach().cpu().numpy(),
                 test_acc.detach().cpu().numpy(),
