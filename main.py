@@ -40,8 +40,13 @@ parser.add_argument('--penalty_anneal_iters', type=int, default=200)
 parser.add_argument('--penalty_weight', type=float, default=100000.0)
 parser.add_argument('--steps', type=int, default=1000)
 parser.add_argument('--grayscale_model', type=int, default=0)
+parser.add_argument('--device', type=int, default=-1, help="-1 means cpu, else cuda")
+
+
 flags = parser.parse_args()
 irm_type = flags.irm_type
+if flags.device>0:
+    torch.cuda.set_device(f"cuda:{flags.device}")
 
 torch.manual_seed(flags.seed)
 np.random.seed(flags.seed)
@@ -107,7 +112,7 @@ for restart in range(flags.n_restarts):
                     create_graph=True)[0]
                 train_penalty +=  1/sampleN * torch.mean(grad**2)
             train_acc, train_minacc, train_majacc = eval_acc(train_logits, train_y, train_c)
-            weight_norm = torch.tensor(0.).cuda()
+            weight_norm = torch.tensor(0.)
             for w in mlp.parameters():
                 weight_norm += w.norm().pow(2)
 
