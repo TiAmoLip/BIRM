@@ -70,7 +70,7 @@ def torch_bernoulli(p, size):
 def torch_xor(a, b):
     return (a-b).abs()
 
-def concat_envs(con_envs):
+def concat_envs(con_envs,batchsize=300):
     con_x = torch.cat([env["images"] for env in con_envs])
     con_y = torch.cat([env["labels"] for env in con_envs])
     con_g = torch.cat([
@@ -83,8 +83,8 @@ def concat_envs(con_envs):
     # con_yn = torch.cat([env["noise"] for env in con_envs])
     # return con_x, con_y, con_g, con_c
     # return con_x.cuda(), con_y.cuda(), con_g.cuda(), con_c.cuda()
-    t = TensorDataset(con_x,con_y,con_g,con_c)
-    return DataLoader(t,300,True)
+    dataset = TensorDataset(con_x,con_y,con_g,con_c)
+    return DataLoader(dataset,batchsize,True)
 
 
 def merge_env(original_env, merged_num):
@@ -416,12 +416,13 @@ class LYDataProvider(object):
 class IRMDataProvider(LYDataProvider):
     def __init__(self, flags):
         super(IRMDataProvider, self).__init__()
+        self.bs = flags.batch_size
 
     def preprocess_data(self):
         # self.train_x, self.train_y, self.train_g, self.train_c= concat_envs(self.envs[:-1])
         # self.test_x, self.test_y, self.test_g, self.test_c= concat_envs(self.envs[-1:])
-        self.train_loader = concat_envs(self.envs[:-1])
-        self.test_loader = concat_envs(self.envs[-1:])
+        self.train_loader = concat_envs(self.envs[:-1],self.bs)
+        self.test_loader = concat_envs(self.envs[-1:],self.bs)
 
     def fetch_train(self):
         return self.train_loader

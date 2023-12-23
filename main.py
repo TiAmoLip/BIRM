@@ -41,7 +41,7 @@ parser.add_argument('--penalty_weight', type=float, default=100000.0)
 parser.add_argument('--steps', type=int, default=1000)
 parser.add_argument('--grayscale_model', type=int, default=0)
 parser.add_argument('--device', type=int, default=-1, help="-1 means cpu, else cuda")
-
+parser.add_argument('--batch_size', type=int, default=300)
 
 flags = parser.parse_args()
 irm_type = flags.irm_type
