@@ -27,7 +27,7 @@ parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--dataset', type=str, default="CMNIST", choices=["CifarMnist","ColoredObject", "CMNIST"])
 parser.add_argument('--opt', type=str, default="adam", choices=["adam", "sgd"])
 parser.add_argument('--l2_regularizer_weight', type=float,default=0.01)
-parser.add_argument('--print_every', type=int,default=20)
+parser.add_argument('--print_every', type=int,default=2)
 parser.add_argument('--data_num', type=int, default=20000)
 parser.add_argument('--lr', type=float, default=0.0004)
 parser.add_argument('--env_type', default="linear", type=str, choices=["2_group", "cos", "linear"])
@@ -94,9 +94,9 @@ for restart in range(flags.n_restarts):
     #     pred_env_haty_sep.init_sep_by_share(pred_env_haty)
     train_loader = dp.fetch_train()
     test_loader = dp.fetch_test()
-    for step in range(flags.steps):
+    for epoch in range(flags.steps):
         mlp.train()
-        for train_x, train_y, train_g, train_c in train_loader:
+        for step, (train_x, train_y, train_g, train_c) in enumerate(train_loader):
         # train_x, train_y, train_g, train_c= dp.fetch_train()
         # if model_type == "bayes_fullbatch":
 
@@ -152,9 +152,9 @@ for restart in range(flags.n_restarts):
         # optimizer.step()
         # lr_schd.step()
 
-        if step % flags.print_every == 0:
-            if flags.dataset != 'CifarMnist':
-                mlp.eval()
+        if epoch % flags.print_every == 0:
+            # if flags.dataset != 'CifarMnist':
+            mlp.eval()
             test_acc_list = []
             test_minacc_list = []
             test_majacc_list = []
@@ -171,7 +171,7 @@ for restart in range(flags.n_restarts):
             total_data = torch.Tensor(data_num).sum()
             test_acc, test_minacc, test_majacc = torch.Tensor(test_acc_list).sum()/total_data, torch.Tensor(test_minacc_list).sum()/total_data, torch.Tensor(test_majacc_list).sum()/total_data
             pretty_print(
-                np.int32(step),
+                np.int32(epoch),
                 loss.detach().cpu().numpy(),
                 train_penalty.detach().cpu().numpy(),
                 test_acc.detach().cpu().numpy(),
