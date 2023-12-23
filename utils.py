@@ -12,7 +12,7 @@ from data import AntiReg
 import os
 import sys
 from torch import nn, optim, autograd
-
+torch.cuda.set_device("cuda:0")
 def return_model(flags):
     model_type = None
     if flags.irm_type == "erm":
