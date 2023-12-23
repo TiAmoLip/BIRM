@@ -27,7 +27,7 @@ parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--dataset', type=str, default="CMNIST", choices=["CifarMnist","ColoredObject", "CMNIST"])
 parser.add_argument('--opt', type=str, default="adam", choices=["adam", "sgd"])
 parser.add_argument('--l2_regularizer_weight', type=float,default=0.01)
-parser.add_argument('--print_every', type=int,default=2)
+parser.add_argument('--print_every', type=int,default=20)
 parser.add_argument('--data_num', type=int, default=20000)
 parser.add_argument('--lr', type=float, default=0.0004)
 parser.add_argument('--env_type', default="linear", type=str, choices=["2_group", "cos", "linear"])
@@ -46,7 +46,7 @@ parser.add_argument('--device', type=int, default=-1, help="-1 means cpu, else c
 flags = parser.parse_args()
 irm_type = flags.irm_type
 if flags.device>=0:
-    torch.set_default_tensor_type("torch.cuda.FloatTensor")
+    # torch.set_default_tensor_type("torch.cuda.FloatTensor")
     torch.cuda.set_device(f"cuda:{flags.device}")
 
 torch.manual_seed(flags.seed)
