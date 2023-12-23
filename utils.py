@@ -142,7 +142,8 @@ def get_strctured_penalty(strctnet, ebd, envs_num, xis):
 
 def make_environment(images, labels, e):
     # 2x subsample for computational convenience
-    images = images.reshape((-1, 28, 28))[:, ::2, ::2]
+    # images = images.reshape((-1, 28, 28))[:, ::2, ::2]
+    images = images.reshape((-1, 28, 28))
     # Assign a binary label based on the digit; flip label with probability 0.25
     labels = (labels < 5).float()
     labels = torch_xor(labels, torch_bernoulli(0.25, len(labels)))

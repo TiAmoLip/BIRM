@@ -145,7 +145,7 @@ class MLP(nn.Module):
             nn.MaxPool2d(2),
             nn.Conv2d(16,32,3,1,1),
             nn.LeakyReLU(0.2,inplace=True),
-            # nn.MaxPool2d(2),
+            nn.MaxPool2d(2),
             nn.Flatten(),
             nn.Linear(32*7*7,100),
             nn.LeakyReLU(0.2,inplace=True),
@@ -156,7 +156,7 @@ class MLP(nn.Module):
         #     out = input.view(input.shape[0], 2, 14 * 14).sum(dim=1)
         # else:
         #     out = input.view(input.shape[0], 2 * 14 * 14)
-        out = self.conv(input.view(-1,2,14,14))
+        out = self.conv(input.view(-1,2,28,28))
         return out
 
 
