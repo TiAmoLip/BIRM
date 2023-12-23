@@ -421,7 +421,7 @@ class IRMDataProvider(LYDataProvider):
         # self.train_x, self.train_y, self.train_g, self.train_c= concat_envs(self.envs[:-1])
         # self.test_x, self.test_y, self.test_g, self.test_c= concat_envs(self.envs[-1:])
         self.train_loader = concat_envs(self.envs[:-1])
-        self.test_loader = concat_envs(self.envs[-1])
+        self.test_loader = concat_envs(self.envs[-1:])
 
     def fetch_train(self):
         return self.train_loader
