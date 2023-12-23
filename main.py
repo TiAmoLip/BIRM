@@ -45,7 +45,8 @@ parser.add_argument('--device', type=int, default=-1, help="-1 means cpu, else c
 
 flags = parser.parse_args()
 irm_type = flags.irm_type
-if flags.device>0:
+if flags.device>=0:
+    torch.set_default_tensor_type("torch.cuda.FloatTensor")
     torch.cuda.set_device(f"cuda:{flags.device}")
 
 torch.manual_seed(flags.seed)
@@ -92,7 +93,7 @@ for restart in range(flags.n_restarts):
     pretty_print('step', 'train loss', 'train penalty', 'test acc')
     # if flags.irm_type == "cirm_sep":
     #     pred_env_haty_sep.init_sep_by_share(pred_env_haty)
-    train_loader = dp.fetch_train()
+    # train_loader = dp.fetch_train()
     # test_loader = dp.fetch_test()
     for step in range(flags.steps):
         mlp.train()
