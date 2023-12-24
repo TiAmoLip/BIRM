@@ -93,7 +93,7 @@ for restart in range(flags.n_restarts):
         gamma=flags.step_gamma)
 
     pretty_print('step', 'train loss', 'train penalty', 'test acc')
-    mu = torch.nn.Parameter(1,flags.update_mu)
+    mu = torch.nn.Parameter([1],flags.update_mu)
     ebd.re_init_with_noise(mu,flags.prior_sd_coef/flags.data_num)
     for step in range(flags.steps):
         model.train()
