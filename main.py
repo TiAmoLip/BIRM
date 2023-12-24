@@ -63,7 +63,7 @@ for restart in range(flags.n_restarts):
         dp = CMNIST_LYDP(flags)
         test_batch_num = 1
         test_batch_fetcher = dp.fetch_test
-        model = MLP(flags).cuda() if flags.model == "MLP" else CNN(flags)
+        model = MLP(flags).cuda() if flags.model == "MLP" else CNN(flags).cuda()
         mean_nll = mean_nll_class
         mean_accuracy = mean_accuracy_class
         eval_acc = eval_acc_class
