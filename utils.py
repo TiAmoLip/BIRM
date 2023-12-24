@@ -1,65 +1,15 @@
-import argparse
-import random
 
 import math
 import numpy as np
 import torch
 from torchvision import datasets
-from data import CowCamels
-from data import AntiReg
-import os
-import sys
-from torch import nn, optim, autograd
 
-def return_model(flags):
-    model_type = None
-    if flags.irm_type == "erm":
-        model_type = "erm"
-    elif flags.irm_type == "irmv1":
-        if flags.dataset == "CMNIST":
-            model_type="irmv1"
-        elif flags.dataset == "ColoredObject":
-            model_type="irmv1b"
-        elif flags.dataset == "CifarMnist":
-            model_type="irmv1b"
-        else:
-            raise("Please specify the irm model for this dataset!")
-    elif flags.irm_type == "birm":
-        if flags.dataset == "CMNIST":
-            model_type="bayes_fullbatch"
-        elif flags.dataset == "ColoredObject":
-            model_type="bayes_variance"
-        elif flags.dataset == "CifarMnist":
-            model_type="bayes_batch"
-        else:
-            raise("Please specify the bayesian irm model for this dataset!")
-        flags = update_flags(flags)
-    else:
-        raise Exception
-    return flags, model_type
+
+from torch import nn, optim, autograd
 
 
 def update_flags(flags):
-    if flags.dataset == "CMNIST":
-        pass
-    elif flags.dataset == "ColoredObject":
-        flags.data_num =12000
-    elif flags.dataset == "CifarMnist":
-        flags.data_num =10000
-    else:
-        pass
-    if flags.irm_type == "birm":
-        if flags.dataset == "CMNIST":
-            if flags.data_num == "5000":
-                flags.prior_sd_coef =1350
-            else:
-                flags.prior_sd_coef =1200
-        elif flags.dataset == "ColoredObject":
-            flags.prior_sd_coef=1000
-        elif flags.dataset == "CifarMnist":
-            flags.prior_sd_coef=1500
-        else:
-            raise("Please specify the bayesian irm model for this dataset!")
+    flags.prior_sd_coef = 1200
     return flags
 
 def torch_bernoulli(p, size):
@@ -82,13 +32,6 @@ def concat_envs(con_envs):
     # return con_x, con_y, con_g, con_c
     return con_x.cuda(), con_y.cuda(), con_g.cuda(), con_c.cuda()
 
-
-def merge_env(original_env, merged_num):
-    merged_envs = merged_num
-    a = original_env
-    interval = (a.max() - a.min()) // merged_envs + 1
-    b = (a - a.min()) // interval
-    return b
 
 def eval_acc_class(logits, labels, colors):
     acc  = mean_accuracy_class(logits, labels)
@@ -128,22 +71,15 @@ def eval_acc_reg(logits, labels, colors):
     return acc, minacc, majacc
 
 
-def get_strctured_penalty(strctnet, ebd, envs_num, xis):
-    x0, x1, x2 = xis
-    assert envs_num > 2
-    x2_ebd = ebd(x2).view(-1, 1) - 1
-    x1_ebd = ebd(x1).view(-1, 1) - 1
-    x0_ebd = ebd(x0).view(-1, 1) - 1
-    x01_ebd = (x0_ebd-x1_ebd)[:, None]
-    x12_ebd = (x1_ebd-x2_ebd)[:, None]
-    x12_ebd_logit = strctnet(x01_ebd)
-    return 10**13 * (x12_ebd_logit - x12_ebd).pow(2).mean()
 
 
-def make_environment(images, labels, e):
+
+def make_environment(images, labels, e, shape=28):
     # 2x subsample for computational convenience
-    # images = images.reshape((-1, 28, 28))[:, ::2, ::2]
-    images = images.reshape((-1, 28, 28))
+    if shape==14:
+        images = images.reshape((-1, 28, 28))[:, ::2, ::2]
+    else:
+        images = images.reshape((-1, 28, 28))
     # Assign a binary label based on the digit; flip label with probability 0.25
     labels = (labels < 5).float()
     labels = torch_xor(labels, torch_bernoulli(0.25, len(labels)))
@@ -160,73 +96,6 @@ def make_environment(images, labels, e):
       'color': (1- color_mask[:, None])
     }
 
-
-def make_environment_fullcolor(images, labels, sp_ratio, noise_ratio):
-    colors = [(1, 1, 0), (1, 0, 1), (0, 1, 1),
-                (1, 0, 0), (0, 1, 0), (1, 0.5, 0),
-                (0, 0, 1), (1, 1, 1),
-                (0, 0.4, 0.8), (0.8,0,0.4)]
-    images = images.reshape((-1, 28, 28))[:, ::2, ::2]
-    images = torch.stack([images, images, images], dim=1).long()
-    NUM_CLASSES = 10
-    assert len(colors) == NUM_CLASSES
-    sp_list = []
-    ln_list = []
-    for i in range( images.shape[0]): #
-        if np.random.random() < noise_ratio: # 0.25
-            label_ = np.random.choice([
-            x for x in list(range(NUM_CLASSES))
-            if x != labels[i]])
-            ln = 0
-        else:
-            label_ = labels[i]
-            ln = 1
-        ln_list.append(ln) # label noise
-        if np.random.random() < sp_ratio: # 0.1
-            color_ = np.random.choice([
-            x for x in list(range(NUM_CLASSES))
-            if x != label_])
-            sp = 0
-        else:
-            color_ = label_
-            sp = 1
-        sp_list.append(sp)
-        bc = torch.Tensor(colors[torch.tensor(color_).long()])[:, None, None]
-        images[i] = (images[i] * bc).long().clone()
-        labels[i] = torch.tensor(label_).long().clone()
-    return {
-      'images': (images.float() / 255.),
-      'labels': labels[:, None],
-      'color': torch.Tensor(sp_list)[:, None]
-    }
-
-
-def make_fullmnist_envs(flags):
-    mnist = datasets.MNIST('~/datasets/mnist', train=True, download=True)
-    mnist_train = (mnist.data[:flags.data_num], mnist.targets[:flags.data_num])
-    mnist_val = (mnist.data[flags.data_num:], mnist.targets[flags.data_num:])
-    rng_state = np.random.get_state()
-    np.random.shuffle(mnist_train[0].numpy())
-    np.random.set_state(rng_state)
-    np.random.shuffle(mnist_train[1].numpy())
-    # Build environments
-    sp_ratio_list = [ 1- float(x) for x in flags.cons_ratio.split("_")]
-    envs_num = len(sp_ratio_list) - 1
-    envs = []
-    for i in range(envs_num):
-        envs.append(
-          make_environment_fullcolor(
-              mnist_train[0][i::envs_num],
-              mnist_train[1][i::envs_num],
-              sp_ratio=sp_ratio_list[i],
-              noise_ratio=flags.noise_ratio))
-    envs.append(
-        make_environment_fullcolor(
-            mnist_val[0],
-            mnist_val[1],
-            sp_ratio=sp_ratio_list[-1],
-            noise_ratio=flags.noise_ratio))
-    return envs
 
 def make_mnist_envs(flags):
     mnist = datasets.MNIST('~/datasets/mnist', train=True, download=True)
@@ -245,11 +114,11 @@ def make_mnist_envs(flags):
               make_environment(
                   mnist_train[0][i::envs_num],
                   mnist_train[1][i::envs_num],
-                  (0.2 - 0.1)/(envs_num-1) * i + 0.1))
+                  (0.2 - 0.1)/(envs_num-1) * i + 0.1,flags.shape))
     elif flags.env_type == "sin":
         for i in range(envs_num):
             envs.append(
-                make_environment(mnist_train[0][i::envs_num], mnist_train[1][i::envs_num], (0.2 - 0.1) * math.sin(i * 2.0 * math.pi / (envs_num-1)) * i + 0.1))
+                make_environment(mnist_train[0][i::envs_num], mnist_train[1][i::envs_num], (0.2 - 0.1) * math.sin(i * 2.0 * math.pi / (envs_num-1)) * i + 0.1,flags.shape))
     elif flags.env_type == "step":
         lower_coef = 0.1
         upper_coef = 0.2
@@ -260,115 +129,14 @@ def make_mnist_envs(flags):
                 make_environment(
                     mnist_train[0][i::envs_num],
                     mnist_train[1][i::envs_num],
-                    env_coef))
+                    env_coef,
+                    flags.shape
+                    ))
     else:
         raise Exception
-    envs.append(make_environment(mnist_val[0], mnist_val[1], 0.9))
+    envs.append(make_environment(mnist_val[0], mnist_val[1], 0.9,flags.shape))
     return envs
 
-def make_one_logit(num, sp_ratio, dim_inv, dim_spu):
-    cc = CowCamels(
-        dim_inv=dim_inv, dim_spu=dim_spu, n_envs=1,
-        p=[sp_ratio], s= [0.5])
-    inputs, outputs, colors, inv_noise= cc.sample(
-        n=num, env="E0")
-    return {
-        'images': inputs,
-        'labels': outputs,
-        'color': colors[:, None]
-    }
-
-def make_one_reg(num, sp_cond, inv_cond, dim_inv, dim_spu):
-    ar = AntiReg(
-        dim_inv=dim_inv, dim_spu=dim_spu, n_envs=1,
-        s=[sp_cond], inv= [inv_cond])
-    inputs, outputs, colors, inv_noise= ar.sample(
-        n=num, env="E0")
-    return {
-        'images': inputs,
-        'labels': outputs,
-        'color': colors,
-        'noise': None,
-    }
-
-def make_logit_envs(total_num, flags):
-    envs_num = flags.envs_num
-    envs = []
-    if flags.env_type == "linear":
-        lower_coef = 0.8
-        upper_coef = 0.9
-        for i in range(envs_num):
-            envs.append(
-                make_one_logit(
-                    total_num // envs_num,
-                    (upper_coef - lower_coef)/(envs_num-1) * i + lower_coef,
-                    flags.dim_inv,
-                    flags.dim_spu))
-    elif flags.env_type == "cos":
-        lower_coef = 0.8
-        upper_coef = 0.9
-        for i in range(envs_num):
-            envs.append(
-                make_one_logit(
-                    total_num // envs_num,
-                    (upper_coef - lower_coef) * math.cos(i * 2.0 * math.pi / envs_num) + lower_coef,
-                    flags.dim_inv,
-                    flags.dim_spu))
-    elif flags.env_type == "sin":
-        lower_coef = 0.8
-        upper_coef = 0.9
-        for i in range(envs_num):
-            envs.append(
-                make_one_logit(
-                    total_num // envs_num,
-                    (upper_coef - lower_coef) * math.sin(i * 2.0 * math.pi / envs_num) + lower_coef,
-                    flags.dim_inv,
-                    flags.dim_spu))
-    elif flags.env_type == "2cos":
-        lower_coef = 0.8
-        upper_coef = 0.9
-        for i in range(envs_num):
-            envs.append(
-                make_one_logit(
-                    total_num // envs_num,
-                    (upper_coef - lower_coef) * math.cos(i * 4.0 * math.pi / envs_num) + lower_coef,
-                    flags.dim_inv,
-                    flags.dim_spu))
-    elif flags.env_type == "2sin":
-        lower_coef = 0.8
-        upper_coef = 0.9
-        for i in range(envs_num):
-            envs.append(
-                make_one_logit(
-                    total_num // envs_num,
-                    (upper_coef - lower_coef) * math.sin(i * 4.0 * math.pi / envs_num) + lower_coef,
-                    flags.dim_inv,
-                    flags.dim_spu))
-    else:
-        raise Exception
-    envs.append(make_one_logit(total_num, 0.1, flags.dim_inv, flags.dim_spu))
-    return envs
-
-def make_reg_envs(total_num, flags):
-    envs_num = flags.envs_num
-    envs = []
-    sp_ratio_list = [float(x) for x in flags.cons_ratio.split("_")]
-    if flags.env_type == "linear":
-        upper_coef = sp_ratio_list[0]
-        lower_coef = sp_ratio_list[1]
-        inv_cond = 1.0
-        for i in range(envs_num):
-            envs.append(
-                make_one_reg(
-                    total_num // envs_num,
-                    (upper_coef - lower_coef)/(envs_num-1) * i + lower_coef,
-                    inv_cond,
-                    flags.dim_inv,
-                    flags.dim_spu))
-    else:
-        raise Exception
-    envs.append(make_one_reg(total_num, sp_ratio_list[-1], inv_cond, flags.dim_inv, flags.dim_spu))
-    return envs
 
 
 def mean_nll_class(logits, y):
@@ -430,24 +198,5 @@ class CMNIST_LYDP(IRMDataProvider):
         self.envs = make_mnist_envs(flags)
         self.preprocess_data()
 
-class CMNISTFULL_LYDP(IRMDataProvider):
-    def __init__(self, flags):
-        super(CMNISTFULL_LYDP, self).__init__(flags)
-        self.flags = flags
-        self.envs = make_fullmnist_envs(flags)
-        self.preprocess_data()
 
-class LOGIT_LYDP(IRMDataProvider):
-    def __init__(self, flags):
-        super(LOGIT_LYDP, self).__init__(flags)
-        self.flags = flags
-        self.envs = make_logit_envs(flags.data_num, flags)
-        self.preprocess_data()
-
-class REG_LYDP(IRMDataProvider):
-    def __init__(self, flags):
-        super(REG_LYDP, self).__init__(flags)
-        self.flags = flags
-        self.envs = make_reg_envs(flags.data_num, flags)
-        self.preprocess_data()
 
