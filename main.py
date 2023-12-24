@@ -103,7 +103,7 @@ for restart in range(flags.n_restarts):
         train_penalty = 0
         train_logits = model(train_x)
         for i in range(sampleN):
-            ebd.re_init_with_noise(mu,flags.prior_sd_coef/flags.data_num)
+            ebd.re_init_with_noise(mu.item(),flags.prior_sd_coef/flags.data_num)
             train_logits_w = ebd(train_g).view(-1, 1)*train_logits
             train_nll = mean_nll(train_logits_w, train_y)
             grad = autograd.grad(
