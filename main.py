@@ -91,7 +91,8 @@ for restart in range(flags.n_restarts):
         gamma=flags.step_gamma)
 
     pretty_print('step', 'train loss', 'train penalty', 'test acc')
-
+    mu = torch.nn.Parameter(1,True)
+    ebd.re_init_with_noise(mu,flags.prior_sd_coef/flags.data_num)
     for step in range(flags.steps):
         model.train()
         train_x, train_y, train_g, train_c= dp.fetch_train()
@@ -100,7 +101,7 @@ for restart in range(flags.n_restarts):
         train_penalty = 0
         train_logits = model(train_x)
         for i in range(sampleN):
-            ebd.re_init_with_noise(flags.prior_sd_coef/flags.data_num)
+            ebd.re_init_with_noise(mu,flags.prior_sd_coef/flags.data_num)
             train_logits_w = ebd(train_g).view(-1, 1)*train_logits
             train_nll = mean_nll(train_logits_w, train_y)
             grad = autograd.grad(

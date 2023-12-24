@@ -29,10 +29,10 @@ class EBD(nn.Module):
     def re_init(self):
       self.embedings.weight.data.fill_(1.)
 
-    def re_init_with_noise(self, noise_sd):
+    def re_init_with_noise(self,mean_sd=1, noise_sd=1200/20000):
       # if self.flags.num_classes == 2:
       rd = torch.normal(
-         torch.Tensor([1.0] * self.flags.envs_num),
+         torch.Tensor([mean_sd] * self.flags.envs_num),
          torch.Tensor([noise_sd] * self.flags.envs_num))
       self.embedings.weight.data = rd.view(-1, 1).cuda()
       # else:
@@ -162,60 +162,8 @@ class CNN(nn.Module):
         return out
 
 
-class MLPFull(nn.Module):
-    def __init__(self, flags):
-        super(MLPFull, self).__init__()
-        self.flags = flags
-        if flags.grayscale_model:
-          lin1 = nn.Linear(14 * 14, flags.hidden_dim)
-        else:
-          lin1 = nn.Linear(3 * 14 * 14, flags.hidden_dim)
-        lin2 = nn.Linear(flags.hidden_dim, flags.hidden_dim)
-        lin3 = nn.Linear(flags.hidden_dim, flags.num_classes)
-        for lin in [lin1, lin2, lin3]:
-          nn.init.xavier_uniform_(lin.weight)
-          nn.init.zeros_(lin.bias)
-        self._main = nn.Sequential(lin1, nn.ReLU(True), lin2, nn.ReLU(True), lin3)
-
-    def forward(self, input):
-        if self.flags.grayscale_model:
-          out = input.view(input.shape[0], 3, 14 * 14).sum(dim=1)
-        else:
-          out = input.view(input.shape[0], 3 * 14 * 14)
-        out = self._main(out)
-        return out
 
 
-class PredEnvHatY(nn.Module):
-    def __init__(self, flags):
-        super(PredEnvHatY, self).__init__()
-        self.lin1 = nn.Linear(1, flags.hidden_dim)
-        self.lin2 = nn.Linear(flags.hidden_dim, 1)
-        for lin in [self.lin1, self.lin2]:
-            nn.init.xavier_uniform_(lin.weight)
-            nn.init.zeros_(lin.bias)
-        self._main = nn.Sequential(
-            self.lin1, nn.ReLU(True), self.lin2)
-
-    def forward(self, input):
-        out = self._main(input)
-        return out
-
-
-class InferEnv(nn.Module):
-    def __init__(self, flags):
-        super(InferEnv, self).__init__()
-        self.lin1 = nn.Linear(1, flags.hidden_dim)
-        self.lin2 = nn.Linear(flags.hidden_dim, 1)
-        for lin in [self.lin1, self.lin2]:
-            nn.init.xavier_uniform_(lin.weight)
-            nn.init.zeros_(lin.bias)
-        self._main = nn.Sequential(
-            self.lin1, nn.ReLU(True), self.lin2, nn.Sigmoid())
-
-    def forward(self, input):
-        out = self._main(input)
-        return out
 
 
 
