@@ -165,5 +165,5 @@ for restart in range(flags.n_restarts):
     final_train_accs.append(train_acc.detach().cpu().numpy())
     final_test_accs.append(test_acc.detach().cpu().numpy())
     print(f'Final test acc: {np.mean(final_test_accs)}, best_acc:{best_acc}')
-torch.save(best_state_dict[0],f"test{round(best_acc,5)}.pth")
+torch.save(best_state_dict[0],f"test{round(best_acc.item(),5)}.pth")
 wandb.finish()
