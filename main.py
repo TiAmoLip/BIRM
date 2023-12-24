@@ -6,7 +6,7 @@ import torch.optim.lr_scheduler as lr_scheduler
 from torchvision import datasets
 import pandas as pd
 import wandb
-
+import os
 from torch import nn, optim, autograd
 from model import EBD
 
@@ -56,7 +56,8 @@ if flags.wandb_log_freq >0:
 
 final_train_accs = []
 final_test_accs = []
-
+best_acc = 0
+best_state_dict = []
 for restart in range(flags.n_restarts):
 
     if flags.dataset == "CMNIST":
@@ -143,6 +144,10 @@ for restart in range(flags.n_restarts):
                 data_num.append(test_x.shape[0])
             total_data = torch.Tensor(data_num).sum()
             test_acc, test_minacc, test_majacc = torch.Tensor(test_acc_list).sum()/total_data, torch.Tensor(test_minacc_list).sum()/total_data, torch.Tensor(test_majacc_list).sum()/total_data
+            if test_acc>best_acc:
+                best_state_dict.clear()
+                best_state_dict.append(model.state_dict())
+                best_acc = test_acc
             if flags.wandb_log_freq<=0:
                 pretty_print(
                     np.int32(step),
@@ -159,5 +164,6 @@ for restart in range(flags.n_restarts):
                 })
     final_train_accs.append(train_acc.detach().cpu().numpy())
     final_test_accs.append(test_acc.detach().cpu().numpy())
-    print('Final test acc: %s' % np.mean(final_test_accs))
+    print(f'Final test acc: {np.mean(final_test_accs)}, best_acc:{best_acc}')
+torch.save(best_state_dict[0],f"test{round(best_acc,5)}.pth")
 wandb.finish()
