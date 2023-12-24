@@ -42,6 +42,8 @@ parser.add_argument('--grayscale_model', type=int, default=0)
 parser.add_argument('--sampleN', type=int, default=20)
 parser.add_argument('--wandb_log_freq',type=int,default=-1)
 parser.add_argument('--model',type=str,default='MLP',choices=['MLP','CNN'])
+parser.add_argument('--update_mu',type=bool,default=False)
+
 flags = parser.parse_args()
 irm_type = flags.irm_type
 
@@ -91,7 +93,7 @@ for restart in range(flags.n_restarts):
         gamma=flags.step_gamma)
 
     pretty_print('step', 'train loss', 'train penalty', 'test acc')
-    mu = torch.nn.Parameter(1,True)
+    mu = torch.nn.Parameter(1,flags.update_mu)
     ebd.re_init_with_noise(mu,flags.prior_sd_coef/flags.data_num)
     for step in range(flags.steps):
         model.train()
