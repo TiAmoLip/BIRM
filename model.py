@@ -138,7 +138,7 @@ class MLP(nn.Module):
 class CNN(nn.Module):
     def __init__(self, flags) -> None:
 
-        super(MLP, self).__init__()
+        super(CNN, self).__init__()
         self.shape = flags.shape
         self.flags = flags
         self.conv = nn.Sequential(
