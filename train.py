@@ -51,7 +51,7 @@ random.seed(1) # Fix the random seed of dataset
 # Because random package is used to generate CifarMnist dataset
 # We fix the randomness of the dataset.
 if flags.device>=0:
-    torch.set_default_device(f"cuda{flags.device}")
+    torch.set_default_device(f"cuda:{flags.device}")
 if flags.wandb_log_freq >0:
     wandb.login(key="433d80a0f2ec170d67780fc27cd9d54a5039a57b")
     wandb.init(project="BIRM",config=flags)
