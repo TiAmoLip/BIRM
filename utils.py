@@ -92,11 +92,11 @@ def make_mnist_envs(flags):
               make_environment(
                   mnist_train[0][i::envs_num],
                   mnist_train[1][i::envs_num],
-                  (0.2 - 0.1)/(envs_num-1) * i + 0.1,flags.shape))
+                  (0.2 - 0.1)/(envs_num-1) * i + 0.1,flags.shape,flags.device>=0))
     elif flags.env_type == "sin":
         for i in range(envs_num):
             envs.append(
-                make_environment(mnist_train[0][i::envs_num], mnist_train[1][i::envs_num], (0.2 - 0.1) * math.sin(i * 2.0 * math.pi / (envs_num-1)) * i + 0.1,flags.shape))
+                make_environment(mnist_train[0][i::envs_num], mnist_train[1][i::envs_num], (0.2 - 0.1) * math.sin(i * 2.0 * math.pi / (envs_num-1)) * i + 0.1,flags.shape,flags.device>=0))
     elif flags.env_type == "step":
         lower_coef = 0.1
         upper_coef = 0.2
@@ -108,11 +108,12 @@ def make_mnist_envs(flags):
                     mnist_train[0][i::envs_num],
                     mnist_train[1][i::envs_num],
                     env_coef,
-                    flags.shape
+                    flags.shape,
+                    flags.device>=0
                     ))
     else:
         raise Exception
-    envs.append(make_environment(mnist_val[0], mnist_val[1], 0.9,flags.shape))
+    envs.append(make_environment(mnist_val[0], mnist_val[1], 0.9,flags.shape,flags.device>=0))
     return envs
 
 
