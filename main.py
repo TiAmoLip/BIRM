@@ -130,7 +130,7 @@ for step in range(flags.steps):
         test_acc = torch.Tensor(test_acc_list).sum()/total_data
         if test_acc>best_acc:
             best_state_dict.clear()
-            best_state_dict.append(model.state_dict())
+            best_state_dict.append(model.state_dict(),ebd.state_dict())
             best_acc = test_acc
         if flags.wandb_log_freq<=0:
             pretty_print(
@@ -150,4 +150,5 @@ final_train_accs.append(train_acc.detach().cpu().numpy())
 final_test_accs.append(test_acc.detach().cpu().numpy())
 print(f'Final test acc: {np.mean(final_test_accs)}, best_acc:{best_acc}')
 torch.save(best_state_dict[0],f"test{round(best_acc.item(),5)}.pth")
+torch.save(best_state_dict[0],f"ebd_test{round(best_acc.item(),5)}.pth")
 wandb.finish()

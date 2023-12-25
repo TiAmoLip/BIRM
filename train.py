@@ -86,7 +86,7 @@ with tqdm(total=flags.steps) as pbar:
         
         epsilon = torch.zeros_like(q_u.m_u)
         classifier = q_u.sample(epsilon)
-        if step>2000:
+        if step>0:
             _lambda_=0.1
             f_e.eval()
             classifier.eval()
