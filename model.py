@@ -100,7 +100,7 @@ class MLP(nn.Module):
         for lin in [lin1, lin2, lin3]:
           nn.init.xavier_uniform_(lin.weight)
           nn.init.zeros_(lin.bias)
-        self._main = nn.Sequential(lin1, nn.LeakyReLU(0.1,True), lin2, nn.LeakyReLU(0.1,True), lin3)
+        self._main = nn.Sequential(lin1, nn.LeakyReLU(0.1,True),nn.Dropout(0.2), lin2, nn.LeakyReLU(0.1,True),nn.Dropout(0.2), lin3)
 
     def forward(self, input):
         if self.flags.grayscale_model:
@@ -119,11 +119,14 @@ class CNN(nn.Module):
             nn.Conv2d(2,16,3,1,1),
             nn.LeakyReLU(0.2,inplace=True),
             nn.MaxPool2d(2),
+            nn.Dropout(0.2),
             nn.Conv2d(16,32,3,1,1),
             nn.LeakyReLU(0.2,inplace=True),
             nn.MaxPool2d(2) if self.shape==28 else nn.Identity(),
+            
             nn.Flatten(),
             nn.Linear(32*7*7,100),
+            nn.Dropout(0.2),
             nn.LeakyReLU(0.2,inplace=True),
             nn.Linear(100,1)
         )
