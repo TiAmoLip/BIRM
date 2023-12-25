@@ -110,6 +110,10 @@ for restart in range(flags.n_restarts):
             grad = autograd.grad(
                 train_nll * flags.envs_num, ebd.parameters(),
                 create_graph=True)[0]
+            g_mu = autograd.grad(
+                train_nll, mu,create_graph=True
+            )[0]
+            mu -= g_mu
             train_penalty +=  1/sampleN * torch.mean(grad**2)
         train_acc, train_minacc, train_majacc = eval_acc(train_logits, train_y, train_c)
         weight_norm = torch.tensor(0.).cuda()
