@@ -3,18 +3,6 @@ import pdb
 import torch
 from torchvision import datasets
 
-class ENV_EBD(nn.Module):
-    def __init__(self, flags):
-      super(ENV_EBD, self).__init__()
-      self.embedings = torch.nn.Embedding(flags.envs_num, 4)
-      self.re_init()
-
-    def re_init(self):
-      pass
-      # self.embedings.weight.data.fill_(1.)
-
-    def forward(self, e):
-      return self.embedings(e.long())
 
 class EBD(nn.Module):
     def __init__(self, flags):
@@ -40,20 +28,6 @@ class EBD(nn.Module):
       #    torch.Tensor([1.0] * self.flags.envs_num * self.flags.num_classes),
       #    torch.Tensor([noise_sd] * self.flags.envs_num* self.flags.num_classes))
       # self.embedings.weight.data = rd.view(-1, self.flags.num_classes).cuda()
-
-    def forward(self, e):
-      return self.embedings(e.long())
-
-
-class Y_EBD(nn.Module):
-    def __init__(self, flags):
-      super(Y_EBD, self).__init__()
-      self.embedings = torch.nn.Embedding(flags.classes_num, 4)
-      self.re_init()
-
-    def re_init(self):
-      pass
-      # self.embedings.weight.data.fill_(1.)
 
     def forward(self, e):
       return self.embedings(e.long())

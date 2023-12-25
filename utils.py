@@ -47,30 +47,6 @@ def mean_accuracy_class(logits, y):
     preds = (logits > 0.).float()
     return ((preds - y).abs() < 1e-2).float().mean()
 
-def eval_acc_multi_class(logits, labels, colors):
-    acc  = mean_accuracy_multi_class(logits, labels)
-    minacc = mean_accuracy_multi_class(
-      logits[colors.view(-1)!=1],
-      labels[colors.view(-1)!=1])
-    majacc = mean_accuracy_multi_class(
-      logits[colors.view(-1)==1],
-      labels[colors.view(-1)==1])
-    return acc, minacc, majacc
-
-def mean_accuracy_multi_class(output, target):
-    probs = torch.softmax(output, dim=1)
-    winners = probs.argmax(dim=1)
-    corrects = (winners == target.view(-1))
-    accuracy = corrects.sum().float() / float(corrects.size(0))
-    return accuracy
-
-def eval_acc_reg(logits, labels, colors):
-    acc  = mean_nll_reg(logits, labels)
-    minacc = torch.tensor(0.0)
-    majacc = torch.tensor(0.0)
-    return acc, minacc, majacc
-
-
 
 
 
@@ -136,22 +112,6 @@ def make_mnist_envs(flags):
         raise Exception
     envs.append(make_environment(mnist_val[0], mnist_val[1], 0.9,flags.shape))
     return envs
-
-
-
-def mean_nll_class(logits, y):
-    return nn.functional.binary_cross_entropy_with_logits(logits, y)
-
-def mean_nll_multi_class(logits, y):
-    nll = nn.CrossEntropyLoss()
-    return nll(logits, y.view(-1).long())
-
-def mean_nll_reg(logits, y):
-    l2loss = nn.MSELoss()
-    return l2loss(logits, y)
-
-def mean_accuracy_reg(logits, y, colors=None):
-    return mean_nll_reg(logits, y)
 
 
 def pretty_print(*values):
