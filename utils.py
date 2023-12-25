@@ -58,8 +58,9 @@ def make_environment(images, labels, e, shape=28,cuda=False):
         images = images.reshape((-1, 28, 28))[:, ::2, ::2]
     else:
         images = images.reshape((-1, 28, 28))
+    images = images.cuda() if cuda else images
     # Assign a binary label based on the digit; flip label with probability 0.25
-    labels = (labels < 5).float()
+    labels = (labels < 5).float().cuda() if cuda else (labels<5).float()
     labels = torch_xor(labels, torch_bernoulli(0.25, len(labels)).cuda() if cuda else torch_bernoulli(0.25, len(labels)))
     # Assign a color based on the label; flip the color with probability e
     color_mask = torch_bernoulli(e, len(labels)).cuda() if cuda else torch_bernoulli(e, len(labels)) 
