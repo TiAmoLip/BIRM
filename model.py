@@ -1,6 +1,7 @@
 from torch import nn, optim, autograd
 import pdb
 import torch
+from torch.nn import functional as F
 from torchvision import datasets
 
 
@@ -31,60 +32,6 @@ class EBD(nn.Module):
 
     def forward(self, e):
       return self.embedings(e.long())
-
-
-class BayesW(nn.Module):
-    def __init__(self, prior, flags, update_w=True):
-        super(BayesW, self).__init__()
-        self.pw, self.psigma = prior
-        self.flags = flags
-        self.vw = torch.nn.Parameter(self.pw.clone(), requires_grad=update_w)
-        self.vsigma= torch.nn.Parameter(self.psigma.clone())
-        self.nll = nn.MSELoss()
-        self.re_init()
-
-    def reset_prior(self, prior):
-        self.pw, self.psigma = prior
-        print("resetting prior", self.pw.item(), self.psigma.item())
-
-    def reset_posterior(self, prior):
-        new_w, new_sigma = prior
-        self.vw.data, self.vsigma.data = new_w.clone(), new_sigma.clone()
-        print("resetting posterior", self.pw.item(), self.psigma.item())
-
-
-    def generate_rand(self, N):
-        self.epsilon = list()
-        for i in range(N):
-            self.epsilon.append(
-                torch.normal(
-                    torch.tensor(0.0),
-                    torch.tensor(1.0)))
-
-    def variational_loss(self, xb, yb, N):
-        pw, psigma = self.pw, self.psigma
-        vw, vsigma = self.vw, self.vsigma
-        kl = torch.log(psigma/vsigma) + (vsigma ** 2 + (vw - pw) ** 2) / (2 * psigma ** 2)
-        lk_loss = 0
-        assert N == len(self.epsilon)
-        for i in range(N):
-            epsilon_i = self.epsilon[i]
-            wt_ei = vw + vsigma * epsilon_i
-            loss_i = self.nll(wt_ei * xb, yb)
-            lk_loss += 1./N * loss_i
-        return lk_loss + 1./self.flags.data_num  * kl
-
-    def forward(self, x):
-        return self.vw * x
-
-    def re_init(self):
-      pass
-
-    def init_sep_by_share(self, share_bayes_net):
-        self.vw.data = share_bayes_net.vw.data.clone()
-        self.vsigma.data = share_bayes_net.vsigma.data.clone()
-        self.epsilon = share_bayes_net.epsilon
-
 
 class MLP(nn.Module):
     def __init__(self, flags):
@@ -140,6 +87,57 @@ class CNN(nn.Module):
 
 
 
+class FeatureExtractor(nn.Module):
+
+    def __init__(self,flags) -> None:
+        super(FeatureExtractor, self).__init__()
+        # self.lin = nn.Linear(4,2,bias=False)
+        self.flags = flags
+        self.l = nn.Sequential(
+            nn.Linear(2*flags.shape*flags.shape,flags.hidden_dim),
+            nn.LeakyReLU(0.2,True),
+            nn.Linear(flags.hidden_dim,flags.hidden_dim)
+          )
+
+    def forward(self, x):
+        return self.l(x.view(-1,2*self.flags.shape*self.flags.shape))
+
+class Classifier(nn.Module):
+
+    def __init__(self, mean, std, epsilon) -> None:
+        super(Classifier, self).__init__()
+        self.w = mean + std*epsilon
+    
+    def forward(self, x):
+        return torch.matmul(x, self.w.T)
+
+class AutoEncoder(nn.Module):
+
+    def __init__(self,flags) -> None:
+        super(AutoEncoder, self).__init__()
+        self.m_u = torch.nn.parameter.Parameter(torch.rand(1,flags.hidden_dim))
+        self.std = torch.nn.parameter.Parameter(torch.rand(1,flags.hidden_dim))
+        torch.nn.init.uniform_(self.m_u, -1, 1)
+        torch.nn.init.uniform_(self.std, 0, 1)
+    
+    def recon_loss(self, X, Y, classifier, f_e): #minimize this
+        return F.binary_cross_entropy_with_logits(classifier(f_e(X)),Y)
+    
+    def KL_loss(self):   #maximize this
+        return torch.sum(1 + torch.log(torch.square(self.std)) - torch.square(self.m_u) - torch.square(self.std))/2
+
+    def sample(self, epsilon=None):
+        if epsilon is None:
+            epsilon =  torch.randn_like(self.m_u)
+        return Classifier(self.m_u, self.std, epsilon)
+    
+    def fit(self, X, Y, f_e, epochs):
+        optim = torch.optim.Adam([self.m_u, self.std], betas=(0.5, 0.5))
+        for _ in range(epochs):
+            loss = self.recon_loss(X, Y, self.sample(), f_e) - self.KL_loss()
+            optim.zero_grad()
+            loss.backward()
+            optim.step()
 
 
 
