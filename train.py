@@ -9,8 +9,8 @@ import wandb
 
 from model import EBD
 
-from model import FeatureExtractor,AutoEncoder,Classifier,kl_divergence
-from torch.nn.functional import binary_cross_entropy_with_logits
+from model import FeatureExtractor,AutoEncoder,Classifier
+# from torch.nn.functional import binary_cross_entropy_with_logits
 from utils import eval_acc_class,mean_accuracy_class,pretty_print
 from utils import CMNIST_LYDP,make_mnist_envs,concat_envs
 
@@ -25,8 +25,8 @@ parser.add_argument('--env_type', default="linear", type=str, choices=["2_group"
 
 parser.add_argument('--hidden_dim', type=int, default=16)
 
-parser.add_argument('--penalty_anneal_iters', type=int, default=200)
-parser.add_argument('--_lambda_', type=float, default=10000.0)
+parser.add_argument('--penalty_anneal_iters', type=int, default=10)
+parser.add_argument('--_lambda_', type=float, default=1.0)
 parser.add_argument('--steps', type=int, default=501)
 
 parser.add_argument('--sampleN', type=int, default=10)
@@ -44,6 +44,7 @@ random.seed(1) # Fix the random seed of dataset
 # We fix the randomness of the dataset.
 if flags.device>=0:
     torch.set_default_device(f"cuda:{flags.device}")
+    torch.set_default_tensor_type("torch.cuda.FloatTensor")
 if flags.wandb_log_freq >0:
     wandb.login(key="433d80a0f2ec170d67780fc27cd9d54a5039a57b")
     t = random.randint(0,1000)
@@ -69,7 +70,7 @@ with tqdm(total=flags.steps) as pbar:
             que.reinit_s()
             que.fit(env_tr['images'],env_tr['labels'],f_e,10)
         q_u.fit(combined_envs[0],combined_envs[1],f_e,10)
-        q_u.reinit_s()
+        # q_u.reinit_s()
         loss = 0
         opt = torch.optim.Adam(f_e.parameters(),lr=flags.lr,betas=(0.5, 0.5))
         for _ in range(flags.sampleN):
@@ -82,6 +83,8 @@ with tqdm(total=flags.steps) as pbar:
         opt.zero_grad()
         loss = loss/flags.sampleN
         loss += flags.l2_regularizer_weight*weight_norm
+        if flags.penalty_weight > 1.0:
+            loss /= (1. + flags.penalty_weight)
         loss.backward()
         opt.step()
         

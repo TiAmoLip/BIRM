@@ -40,7 +40,7 @@ parser.add_argument('--grayscale_model', type=int, default=0)
 parser.add_argument('--sampleN', type=int, default=10)
 parser.add_argument('--wandb_log_freq',type=int,default=-1)
 parser.add_argument('--model',type=str,default='MLP',choices=['MLP','CNN'])
-parser.add_argument('--update_mu',type=bool,default=False)
+parser.add_argument('--experiment_name',type=str,default='')
 
 flags = parser.parse_args()
 irm_type = flags.irm_type
@@ -52,9 +52,10 @@ random.seed(1) # Fix the random seed of dataset
 # We fix the randomness of the dataset.
 if flags.wandb_log_freq >0:
     wandb.login(key="433d80a0f2ec170d67780fc27cd9d54a5039a57b")
-    wandb.init(project="BIRM",config=flags)
+    wandb.init(project="BIRM",config=flags,name = None if flags.experiment_name=='' else flags.experiment_name)
 if flags.device>=0:
     torch.set_default_device(f"cuda:{flags.device}")
+    torch.set_default_tensor_type("torch.cuda.FloatTensor")
 final_train_accs = []
 final_test_accs = []
 best_acc = 0
@@ -68,7 +69,7 @@ mean_nll = binary_cross_entropy_with_logits
 mean_accuracy = mean_accuracy_class
 eval_acc = eval_acc_class
 flags.env_type = "linear"
-
+wandb.watch(model)
 optimizer = optim.Adam(model.parameters(),lr=flags.lr)
 
 ebd = EBD(flags).cuda()
