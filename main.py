@@ -69,7 +69,7 @@ mean_nll = binary_cross_entropy_with_logits
 mean_accuracy = mean_accuracy_class
 eval_acc = eval_acc_class
 flags.env_type = "linear"
-wandb.watch(model)
+
 optimizer = optim.Adam(model.parameters(),lr=flags.lr)
 
 ebd = EBD(flags).cuda()
