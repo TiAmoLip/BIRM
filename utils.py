@@ -144,10 +144,11 @@ class LYDataProvider(object):
 class IRMDataProvider(LYDataProvider):
     def __init__(self, flags):
         super(IRMDataProvider, self).__init__()
+        self.cuda = flags.device>=0
 
     def preprocess_data(self):
-        self.train_x, self.train_y, self.train_g, self.train_c= concat_envs(self.envs[:-1])
-        self.test_x, self.test_y, self.test_g, self.test_c= concat_envs(self.envs[-1:])
+        self.train_x, self.train_y, self.train_g, self.train_c= concat_envs(self.envs[:-1],cuda=self.cuda)
+        self.test_x, self.test_y, self.test_g, self.test_c= concat_envs(self.envs[-1:],cuda=self.cuda)
 
     def fetch_train(self):
         return self.train_x, self.train_y, self.train_g, self.train_c
