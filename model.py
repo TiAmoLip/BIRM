@@ -118,10 +118,12 @@ class AutoEncoder(nn.Module):
 
     def __init__(self,flags) -> None:
         super(AutoEncoder, self).__init__()
-        self.m_u = torch.nn.parameter.Parameter(torch.rand(1,flags.hidden_dim))
-        self.std = torch.nn.parameter.Parameter(torch.rand(1,flags.hidden_dim))
-        torch.nn.init.uniform_(self.m_u, -1, 1)
-        torch.nn.init.uniform_(self.std, 0, 1)
+        # self.m_u = torch.nn.parameter.Parameter(torch.rand(1,flags.hidden_dim))
+        # self.std = torch.nn.parameter.Parameter(torch.rand(1,flags.hidden_dim))
+        self.m_u = torch.Tensor([[1]*flags.hidden_dim])
+        self.std = torch.Tensor([[0.5]*flags.hidden_dim])
+        # torch.nn.init.uniform_(self.m_u, -1, 1)
+        # torch.nn.init.uniform_(self.std, 0, 1)
         self.s = 0
     
     def nll(self, X, Y, classifier, f_e): #minimize this
@@ -129,6 +131,9 @@ class AutoEncoder(nn.Module):
         return F.binary_cross_entropy_with_logits(classifier(f_e(X)*self.s),Y)
     def reinit_s(self):
       self.s = torch.randn(1)*self.m_u.detach() + self.std.detach()
+    def reinit_std(self,noise=0.5):
+      # print(self.m_u.shape)
+      self.std = torch.randn(*self.std.shape)*noise+1
     
     def KL_Div(self):   #maximize this
       # mu = self.m_u.detach().numpy()
