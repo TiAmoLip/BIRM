@@ -161,6 +161,8 @@ cython_debug/
 #.idea/
 *.txt
 *.png
-
+wandb/
 # report
 method.md
+question.md
+BIRM.rar

@@ -1,9 +1,10 @@
 from torch import nn, optim, autograd
 import pdb
 import torch
+import numpy as np
 from torch.nn import functional as F
 from torchvision import datasets
-
+# from scipy.integrate import quad
 
 class EBD(nn.Module):
     def __init__(self, flags):
@@ -95,8 +96,10 @@ class FeatureExtractor(nn.Module):
         self.flags = flags
         self.l = nn.Sequential(
             nn.Linear(2*flags.shape*flags.shape,flags.hidden_dim),
-            nn.LeakyReLU(0.2,True),
-            nn.Linear(flags.hidden_dim,flags.hidden_dim)
+            # nn.LeakyReLU(0.2,True),
+            # nn.Linear(flags.shape,flags.shape),
+            # nn.LeakyReLU(0.2,True),
+            # nn.Linear(flags.shape,flags.hidden_dim)
           )
 
     def forward(self, x):
@@ -119,12 +122,26 @@ class AutoEncoder(nn.Module):
         self.std = torch.nn.parameter.Parameter(torch.rand(1,flags.hidden_dim))
         torch.nn.init.uniform_(self.m_u, -1, 1)
         torch.nn.init.uniform_(self.std, 0, 1)
+        self.s = 0
     
-    def recon_loss(self, X, Y, classifier, f_e): #minimize this
-        return F.binary_cross_entropy_with_logits(classifier(f_e(X)),Y)
+    def nll(self, X, Y, classifier, f_e): #minimize this
+        # s = torch.randn(1)*self.m_u + self.std
+        return F.binary_cross_entropy_with_logits(classifier(f_e(X)*self.s),Y)
+    def reinit_s(self):
+      self.s = torch.randn(1)*self.m_u.detach() + self.std.detach()
     
-    def KL_loss(self):   #maximize this
-        return torch.sum(1 + torch.log(torch.square(self.std)) - torch.square(self.m_u) - torch.square(self.std))/2
+    def KL_Div(self):   #maximize this
+      # mu = self.m_u.detach().numpy()
+      # sigma = self.std.detach().numpy()
+      # p = lambda x: 1/np.sqrt(2*np.pi)/sigma*np.exp(-(x-mu)**2/2/sigma**2)
+      # # q = lambda x: 1/np.sqrt(2*np.pi)/sigma*np.exp(-(x-mu)**2/2/sigma**2)
+      # integrand = lambda x: p(x)*(-np.log(sigma)+0.5-(x-mu)**2/2/sigma**2)
+      
+      # integrand = lambda x: p(x)*(-np.log(sigma)+np.log(np.exp(0.5-(x-mu)**2/2/sigma**2)))
+      # result, _ = quad(integrand,-100,100)
+      # return result
+      
+      return torch.sum(1 + torch.log(torch.square(self.std)) - torch.square(self.m_u) - torch.square(self.std))/2
 
     def sample(self, epsilon=None):
         if epsilon is None:
@@ -132,13 +149,12 @@ class AutoEncoder(nn.Module):
         return Classifier(self.m_u, self.std, epsilon)
     
     def fit(self, X, Y, f_e, epochs):
-        optim = torch.optim.Adam([self.m_u, self.std], betas=(0.5, 0.5))
+        optim = torch.optim.Adam([self.m_u, self.std],lr=1e-3)
         for _ in range(epochs):
-            loss = self.recon_loss(X, Y, self.sample(), f_e) - self.KL_loss()
+            loss = self.nll(X, Y, self.sample(), f_e) - self.KL_Div()
             optim.zero_grad()
             loss.backward()
             optim.step()
-
 
 
 

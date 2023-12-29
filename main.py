@@ -29,6 +29,7 @@ parser.add_argument('--data_num', type=int, default=2000)
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--env_type', default="linear", type=str, choices=["2_group", "cos", "linear"])
 parser.add_argument('--irm_type', default="birm", type=str, choices=["birm", "irmv1", "erm"])
+parser.add_argument('--device', default=-1, type=int)
 
 parser.add_argument('--hidden_dim', type=int, default=16)
 parser.add_argument('--step_gamma', type=float, default=0.1)
@@ -130,7 +131,7 @@ for step in range(flags.steps):
         test_acc = torch.Tensor(test_acc_list).sum()/total_data
         if test_acc>best_acc:
             best_state_dict.clear()
-            best_state_dict.append(model.state_dict(),ebd.state_dict())
+            best_state_dict.append(model.state_dict())
             best_acc = test_acc
         if flags.wandb_log_freq<=0:
             pretty_print(
@@ -150,5 +151,5 @@ final_train_accs.append(train_acc.detach().cpu().numpy())
 final_test_accs.append(test_acc.detach().cpu().numpy())
 print(f'Final test acc: {np.mean(final_test_accs)}, best_acc:{best_acc}')
 torch.save(best_state_dict[0],f"test{round(best_acc.item(),5)}.pth")
-torch.save(best_state_dict[0],f"ebd_test{round(best_acc.item(),5)}.pth")
+# torch.save(best_state_dict[1],f"ebd_test{round(best_acc.item(),5)}.pth")
 wandb.finish()
