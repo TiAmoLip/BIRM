@@ -53,7 +53,8 @@ random.seed(1) # Fix the random seed of dataset
 if flags.wandb_log_freq >0:
     wandb.login(key="433d80a0f2ec170d67780fc27cd9d54a5039a57b")
     wandb.init(project="BIRM",config=flags)
-
+if flags.device>=0:
+    torch.set_default_device(f"cuda:{flags.device}")
 final_train_accs = []
 final_test_accs = []
 best_acc = 0
