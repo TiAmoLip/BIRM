@@ -35,16 +35,6 @@ def concat_envs(con_envs,cuda = False):
         return con_x, con_y, con_g, con_c
 
 
-def eval_acc_class(logits, labels, colors):
-    acc  = mean_accuracy_class(logits, labels)
-    minacc = mean_accuracy_class(
-      logits[colors!=1],
-      labels[colors!=1])
-    majacc = mean_accuracy_class(
-      logits[colors==1],
-      labels[colors==1])
-    return acc, minacc, majacc
-
 def mean_accuracy_class(logits, y):
     preds = (logits > 0.).float()
     return ((preds - y).abs() < 1e-2).float().mean()
@@ -87,33 +77,13 @@ def make_mnist_envs(flags):
     # Build environments
     envs_num = flags.envs_num
     envs = []
-    if flags.env_type == "linear":
-        for i in range(envs_num):
-            envs.append(
-              make_environment(
-                  mnist_train[0][i::envs_num],
-                  mnist_train[1][i::envs_num],
-                  (0.2 - 0.1)/(envs_num-1) * i + 0.1,flags.shape,flags.device>=0))
-    elif flags.env_type == "sin":
-        for i in range(envs_num):
-            envs.append(
-                make_environment(mnist_train[0][i::envs_num], mnist_train[1][i::envs_num], (0.2 - 0.1) * math.sin(i * 2.0 * math.pi / (envs_num-1)) * i + 0.1,flags.shape,flags.device>=0))
-    elif flags.env_type == "step":
-        lower_coef = 0.1
-        upper_coef = 0.2
-        env_per_group = flags.envs_num // 2
-        for i in range(envs_num):
-            env_coef = lower_coef if i < env_per_group else upper_coef
-            envs.append(
-                make_environment(
-                    mnist_train[0][i::envs_num],
-                    mnist_train[1][i::envs_num],
-                    env_coef,
-                    flags.shape,
-                    flags.device>=0
-                    ))
-    else:
-        raise Exception
+    for i in range(envs_num):
+        envs.append(
+            make_environment(
+                mnist_train[0][i::envs_num],
+                mnist_train[1][i::envs_num],
+                (0.2 - 0.1)/(envs_num-1) * i + 0.1,flags.shape,flags.device>=0))
+    
     envs.append(make_environment(mnist_val[0], mnist_val[1], 0.9,flags.shape,flags.device>=0))
     return envs
 

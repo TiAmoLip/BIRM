@@ -12,7 +12,7 @@ from model import EBD
 
 from model import MLP,CNN
 from torch.nn.functional import binary_cross_entropy_with_logits
-from utils import eval_acc_class,mean_accuracy_class,pretty_print
+from utils import mean_accuracy_class,pretty_print
 from utils import CMNIST_LYDP
 
 
@@ -28,7 +28,6 @@ parser.add_argument('--shape', type=int,default=28,help="shape of colored mnist"
 parser.add_argument('--data_num', type=int, default=2000)
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--env_type', default="linear", type=str, choices=["2_group", "cos", "linear"])
-parser.add_argument('--irm_type', default="birm", type=str, choices=["birm", "irmv1", "erm"])
 parser.add_argument('--device', default=-1, type=int)
 
 parser.add_argument('--hidden_dim', type=int, default=16)
@@ -36,14 +35,13 @@ parser.add_argument('--step_gamma', type=float, default=0.1)
 parser.add_argument('--penalty_anneal_iters', type=int, default=200)
 parser.add_argument('--penalty_weight', type=float, default=10000.0)
 parser.add_argument('--steps', type=int, default=501)
-parser.add_argument('--grayscale_model', type=int, default=0)
+
 parser.add_argument('--sampleN', type=int, default=10)
 parser.add_argument('--wandb_log_freq',type=int,default=-1)
 parser.add_argument('--model',type=str,default='MLP',choices=['MLP','CNN'])
 parser.add_argument('--experiment_name',type=str,default='')
 
 flags = parser.parse_args()
-irm_type = flags.irm_type
 
 torch.manual_seed(flags.seed)
 np.random.seed(flags.seed)
@@ -56,23 +54,23 @@ if flags.wandb_log_freq >0:
 if flags.device>=0:
     torch.set_default_device(f"cuda:{flags.device}")
     torch.set_default_tensor_type("torch.cuda.FloatTensor")
-final_train_accs = []
+
 final_test_accs = []
 best_acc = 0
 best_state_dict = []
 
 dp = CMNIST_LYDP(flags)
-test_batch_num = 1
+
 test_batch_fetcher = dp.fetch_test
 model = MLP(flags).cuda() if flags.model == "MLP" else CNN(flags).cuda()
 mean_nll = binary_cross_entropy_with_logits
-mean_accuracy = mean_accuracy_class
-eval_acc = eval_acc_class
+
+eval_acc = mean_accuracy_class
 flags.env_type = "linear"
 
 optimizer = optim.Adam(model.parameters(),lr=flags.lr)
 
-ebd = EBD(flags).cuda()
+q = EBD(flags).cuda()
 lr_schd = lr_scheduler.StepLR(
     optimizer,
     step_size=int(flags.steps/2),
@@ -81,23 +79,21 @@ lr_schd = lr_scheduler.StepLR(
 pretty_print('step', 'train loss', 'train penalty', 'test acc')
 
 for step in range(flags.steps):
-    
     model.train()
     train_x, train_y, train_g, train_c= dp.fetch_train()
-
     sampleN = flags.sampleN
     train_penalty = 0
     train_logits = model(train_x)
     for i in range(sampleN):
-        ebd.re_init_with_noise(1,flags.prior_sd_coef/flags.data_num)
-        train_logits_w = ebd(train_g).view(-1, 1)*train_logits
+        q.reinit_std(1,flags.prior_sd_coef/flags.data_num)
+        train_logits_w = q(train_g).view(-1, 1)*train_logits
         train_nll = mean_nll(train_logits_w, train_y)
         grad = autograd.grad(
-            train_nll * flags.envs_num, ebd.parameters(),
+            train_nll * flags.envs_num, q.parameters(),
             create_graph=True)[0]
 
         train_penalty +=  1/sampleN * torch.mean(grad**2)
-    train_acc, train_minacc, train_majacc = eval_acc(train_logits, train_y, train_c)
+    train_acc = eval_acc(train_logits, train_y)
     weight_norm = torch.tensor(0.).cuda()
     for w in model.parameters():
         weight_norm += w.norm().pow(2)
@@ -123,14 +119,11 @@ for step in range(flags.steps):
         test_acc_list = []
 
         data_num = []
-        for ii in range(test_batch_num):
-            test_x, test_y, test_g, test_c= test_batch_fetcher()
-            test_logits = model(test_x)
-            test_acc_, _, __ = eval_acc(test_logits, test_y, test_c)
-            test_acc_list.append(test_acc_ * test_x.shape[0])
-            data_num.append(test_x.shape[0])
-        total_data = torch.Tensor(data_num).sum()
-        test_acc = torch.Tensor(test_acc_list).sum()/total_data
+
+        test_x, test_y, test_g, test_c= test_batch_fetcher()
+        test_logits = model(test_x)
+        test_acc = eval_acc(test_logits, test_y)
+        
         if test_acc>best_acc:
             best_state_dict.clear()
             best_state_dict.append(model.state_dict())
@@ -149,7 +142,7 @@ for step in range(flags.steps):
                 "train_penalty":train_penalty,
                 "train_loss":loss
             })
-final_train_accs.append(train_acc.detach().cpu().numpy())
+
 final_test_accs.append(test_acc.detach().cpu().numpy())
 print(f'Final test acc: {np.mean(final_test_accs)}, best_acc:{best_acc}')
 torch.save(best_state_dict[0],f"test{round(best_acc.item(),5)}.pth")

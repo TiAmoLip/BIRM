@@ -11,7 +11,7 @@ from model import EBD
 
 from model import FeatureExtractor,AutoEncoder,Classifier
 # from torch.nn.functional import binary_cross_entropy_with_logits
-from utils import eval_acc_class,mean_accuracy_class,pretty_print
+from utils import mean_accuracy_class,mean_accuracy_class,pretty_print
 from utils import CMNIST_LYDP,make_mnist_envs,concat_envs
 
 parser = argparse.ArgumentParser(description='Colored MNIST')
@@ -103,8 +103,8 @@ with tqdm(total=flags.steps) as pbar:
             with torch.no_grad():
                 test_logits = classifier(f_e(test_envs[0]['images']))
                 train_logits = classifier(f_e(combined_envs[0]))
-            test_acc,_,_ = eval_acc_class(test_logits,test_envs[0]['labels'],test_envs[0]['color'])
-            train_acc,_,_ = eval_acc_class(train_logits,combined_envs[1],combined_envs[-1])
+            test_acc,_,_ = mean_accuracy_class(test_logits,test_envs[0]['labels'],test_envs[0]['color'])
+            train_acc,_,_ = mean_accuracy_class(train_logits,combined_envs[1],combined_envs[-1])
             
             pbar.update(1)
 
@@ -122,10 +122,10 @@ with tqdm(total=flags.steps) as pbar:
             with torch.no_grad():
                 # test_logits = classifier(f_e(test_envs[0]['images']))
                 train_logits = classifier(f_e(combined_envs[0]))
-            # test_acc,_,_ = eval_acc_class(test_logits,test_envs[0]['labels'],test_envs[0]['color'])
-            train_acc,_,_ = eval_acc_class(train_logits,combined_envs[1],combined_envs[-1])
+            # test_acc,_,_ = mean_accuracy_class(test_logits,test_envs[0]['labels'],test_envs[0]['color'])
+            train_acc,_,_ = mean_accuracy_class(train_logits,combined_envs[1],combined_envs[-1])
             pbar.update(1)
             pbar.set_description(f"train_loss: {round(loss.item(),5)}, train_acc:{train_acc}")
 if flags.wandb_log_freq>0:
     wandb.finish()
-# python train.py --l2_regularizer_weight 0.004 --hidden_dim 3 --_lambda_ 100 --steps 1000 --wandb_log_freq 20 --lr 0.0004可以收敛到0.61
+# python train.py --l2_regularizer_weight 0.004 --hidden_dim 3 --_lambda_ 100 --steps 1000 --wandb_log_freq -1 --lr 0.0004可以收敛到0.61

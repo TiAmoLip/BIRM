@@ -19,7 +19,7 @@ class EBD(nn.Module):
     def re_init(self):
       self.embedings.weight.data.fill_(1.)
 
-    def re_init_with_noise(self,mean_sd=1, noise_sd=1200/20000):
+    def reinit_std(self,mean_sd=1, noise_sd=1200/20000):
       # if self.flags.num_classes == 2:
       rd = torch.normal(
          torch.Tensor([mean_sd] * self.flags.envs_num),
@@ -39,10 +39,8 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         self.flags = flags
         self.shape = flags.shape
-        if flags.grayscale_model:
-          lin1 = nn.Linear(self.shape * self.shape, flags.hidden_dim)
-        else:
-          lin1 = nn.Linear(2 * self.shape * self.shape, flags.hidden_dim)
+
+        lin1 = nn.Linear(2 * self.shape * self.shape, flags.hidden_dim)
         lin2 = nn.Linear(flags.hidden_dim, flags.hidden_dim)
         lin3 = nn.Linear(flags.hidden_dim, 1)
         for lin in [lin1, lin2, lin3]:
@@ -51,10 +49,7 @@ class MLP(nn.Module):
         self._main = nn.Sequential(lin1, nn.LeakyReLU(0.1,True),nn.Dropout(0.2), lin2, nn.LeakyReLU(0.1,True),nn.Dropout(0.2), lin3)
 
     def forward(self, input):
-        if self.flags.grayscale_model:
-          out = input.view(input.shape[0], 2, self.shape * self.shape).sum(dim=1)
-        else:
-          out = input.view(input.shape[0], 2 * self.shape * self.shape)
+        out = input.view(input.shape[0], 2 * self.shape * self.shape)
         out = self._main(out)
         return out
 class CNN(nn.Module):
@@ -79,10 +74,7 @@ class CNN(nn.Module):
             nn.Linear(100,1)
         )
     def forward(self, input):
-        # if self.flags.grayscale_model:
-        #     out = input.view(input.shape[0], 2, 14 * 14).sum(dim=1)
-        # else:
-        #     out = input.view(input.shape[0], 2 * 14 * 14)
+
         out = self.conv(input.view(-1,2,self.shape,self.shape))
         return out
 
