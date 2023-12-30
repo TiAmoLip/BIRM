@@ -14,3 +14,5 @@ python main.py --l2_regularizer_weight 0.004 --lr 0.0004 --print_every -1 --hidd
 The first code does not need gpu since I tried on colab and found it not improved much.
 
 The test0.72045.pth is the state dict of mlp in the second code.
+
+By the way, the backup_base.ipynb is used to back up the base part of backdoor adjustment: it only contains logs and code that involves adjusting dataset
