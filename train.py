@@ -21,11 +21,10 @@ parser.add_argument('--shape', type=int,default=28,help="shape of colored mnist"
 parser.add_argument('--data_num', type=int,default=20000,help="shape of colored mnist")
 parser.add_argument('--l2_regularizer_weight', type=float,default=0.001)
 parser.add_argument('--lr', type=float, default=1e-3)
-parser.add_argument('--env_type', default="linear", type=str, choices=["2_group", "cos", "linear"])
 
 parser.add_argument('--hidden_dim', type=int, default=16)
 
-parser.add_argument('--penalty_anneal_iters', type=int, default=10)
+parser.add_argument('--penalty_anneal_iters', type=int, default=10,help = "when to perform penalty")
 parser.add_argument('--_lambda_', type=float, default=1.0)
 parser.add_argument('--steps', type=int, default=501)
 

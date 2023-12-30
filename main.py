@@ -27,12 +27,11 @@ parser.add_argument('--print_every', type=int,default=20)
 parser.add_argument('--shape', type=int,default=28,help="shape of colored mnist",choices=[28,14])
 parser.add_argument('--data_num', type=int, default=2000)
 parser.add_argument('--lr', type=float, default=0.001)
-parser.add_argument('--env_type', default="linear", type=str, choices=["2_group", "cos", "linear"])
 parser.add_argument('--device', default=-1, type=int)
 
 parser.add_argument('--hidden_dim', type=int, default=16)
 parser.add_argument('--step_gamma', type=float, default=0.1)
-parser.add_argument('--penalty_anneal_iters', type=int, default=200)
+parser.add_argument('--penalty_anneal_iters', type=int, default=200,help = "when to perform penalty")
 parser.add_argument('--penalty_weight', type=float, default=10000.0)
 parser.add_argument('--steps', type=int, default=501)
 
@@ -66,7 +65,7 @@ model = MLP(flags).cuda() if flags.model == "MLP" else CNN(flags).cuda()
 mean_nll = binary_cross_entropy_with_logits
 
 eval_acc = mean_accuracy_class
-flags.env_type = "linear"
+
 
 optimizer = optim.Adam(model.parameters(),lr=flags.lr)
 
