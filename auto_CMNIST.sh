@@ -1,1 +1,1 @@
-python main.py --l2_regularizer_weight 0.003 --lr 0.004 --hidden_dim 500 --penalty_anneal_iter 200 --penalty_weight 200000 --steps 2000 --data_num 20000 --seed 0
+python main.py --penalty_anneal_iters 100 --l2_regularizer_weight 0.004 --lr 0.0004 --print_every 10 --hidden_dim 1000 --penalty_weight 10000 --steps 1000 --data_num 20000 --seed 0 --wandb_log_freq -1 --model MLP --shape 28 --sampleN 10 --device 0
