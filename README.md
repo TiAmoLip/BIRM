@@ -13,4 +13,4 @@ python main.py --l2_regularizer_weight 0.004 --lr 0.0004 --print_every -1 --hidd
 
 The first code does not need gpu since I tried on colab and found it not improved much.
 
-The test0.72045.pth is the state dict of mlp in the first code.
+The test0.72045.pth is the state dict of mlp in the second code.
