@@ -128,4 +128,4 @@ with tqdm(total=flags.steps) as pbar:
             pbar.set_description(f"train_loss: {round(loss.item(),5)}, train_acc:{train_acc}")
 if flags.wandb_log_freq>0:
     wandb.finish()
-# python train.py --l2_regularizer_weight 0.004 --hidden_dim 3 --_lambda_ 100 --steps 1000 --wandb_log_freq 20 --lr 0.0004看起来能收敛
+# python train.py --l2_regularizer_weight 0.004 --hidden_dim 3 --_lambda_ 100 --steps 1000 --wandb_log_freq 20 --lr 0.0004可以收敛到0.61
