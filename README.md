@@ -15,4 +15,4 @@ The first code does not need gpu since I tried on colab and found it not improve
 
 The test0.72045.pth is the state dict of mlp in the second code.
 
-By the way, the backup_base.ipynb is used to back up the base part of backdoor adjustment: it only contains logs and code that involves adjusting dataset
+By the way, the backup_base.ipynb is used to back up the base part of backdoor adjustment: it only contains logs and code that involves adjusting dataset for AI3610 in SJTU
